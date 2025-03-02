@@ -1,71 +1,130 @@
-// PostgreSQL Monitor - Connection Manager with Direct DB Connection Support
-document.addEventListener('DOMContentLoaded', function() {
-    // DOM Elements
-    const addConnectionBtn = document.getElementById('add-connection-btn');
-    const addConnectionModal = new bootstrap.Modal(document.getElementById('add-connection-modal'));
-    const editConnectionModal = new bootstrap.Modal(document.getElementById('edit-connection-modal'));
-    const deleteConnectionModal = new bootstrap.Modal(document.getElementById('delete-connection-modal'));
-    const testConnectionBtn = document.getElementById('test-connection-btn');
-    const saveConnectionBtn = document.getElementById('save-connection-btn');
-    const editTestConnectionBtn = document.getElementById('edit-test-connection-btn');
-    const updateConnectionBtn = document.getElementById('update-connection-btn');
-    const confirmDeleteConnectionBtn = document.getElementById('confirm-delete-connection-btn');
-    const connectionsTable = document.getElementById('connections-table');
-    const refreshConnectionsBtn = document.getElementById('refresh-connections-btn');
+// connections.js
+import PostgreSQLMonitorAPI from './api.js';
 
-    // Connection storage key for localStorage
-    const STORAGE_KEY = 'pg-monitor-connections';
-    
-    // Initialize connections array
-    let connections = [];
+export default class ConnectionManager {
+    constructor() {
+        console.log('ConnectionManager initialized');
 
-    // Initialize the connections table
-    function initConnectionsManager() {
-        // Load connections from localStorage
-        loadConnections();
-        setupEventListeners();
+        // DOM Elements
+        this.connectionsTable = document.getElementById('connections-table');
+        this.addConnectionBtn = document.getElementById('add-connection-btn');
+        this.saveConnectionBtn = document.getElementById('save-connection-btn');
+        this.testConnectionBtn = document.getElementById('test-connection-btn');
+        this.updateConnectionBtn = document.getElementById('update-connection-btn');
+        this.confirmDeleteConnectionBtn = document.getElementById('confirm-delete-connection-btn');
         
-        // Display the debug panel for developers
-        if (isDebugMode()) {
-            createDebugPanel();
+        // Modals
+        this.addConnectionModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('add-connection-modal'));
+        this.editConnectionModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('edit-connection-modal'));
+        this.deleteConnectionModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('delete-connection-modal'));
+        
+        // Forms
+        this.addConnectionForm = document.getElementById('add-connection-form');
+        this.editConnectionForm = document.getElementById('edit-connection-form');
+        
+        // Bind methods
+        this.initEventListeners = this.initEventListeners.bind(this);
+        this.resetAddConnectionForm = this.resetAddConnectionForm.bind(this);
+        
+        // Initialize
+        this.initEventListeners();
+    }
+
+    initEventListeners() {
+        console.log('Initializing event listeners');
+
+        // Add Connection Button
+        if (this.addConnectionBtn) {
+            this.addConnectionBtn.addEventListener('click', (event) => {
+                console.log('Add Connection Button Clicked');
+                event.preventDefault();
+                this.resetAddConnectionForm();
+            });
+        } else {
+            console.error('Add Connection Button not found');
+        }
+
+        // Test Connection Button
+        if (this.testConnectionBtn) {
+            this.testConnectionBtn.addEventListener('click', () => this.testNewConnection());
+        }
+
+        // Save Connection Button
+        if (this.saveConnectionBtn) {
+            this.saveConnectionBtn.addEventListener('click', () => this.saveNewConnection());
+        }
+
+        // Load connections
+        this.loadConnections();
+    }
+
+    resetAddConnectionForm() {
+        console.log('Resetting Add Connection Form');
+        
+        // Reset form
+        if (this.addConnectionForm) {
+            this.addConnectionForm.reset();
+        }
+
+        // Show modal
+        if (this.addConnectionModal) {
+            this.addConnectionModal.show();
+            console.log('Add Connection Modal Shown');
+        } else {
+            console.error('Add Connection Modal not found');
         }
     }
 
-    // Check if debug mode is enabled via URL parameter
-    function isDebugMode() {
-        return window.location.search.includes('debug=true');
-    }
-    
-    // Load connections from localStorage
-    function loadConnections() {
-        // Show loading state
-        const tbody = connectionsTable.querySelector('tbody');
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading connections...</td></tr>';
+    async testNewConnection() {
+        console.log('Testing New Connection');
+        const connectionData = this.getConnectionFormData('add');
 
         try {
-            // Get connections from localStorage
-            const storedConnections = localStorage.getItem(STORAGE_KEY);
-            if (storedConnections) {
-                connections = JSON.parse(storedConnections);
-                // Remove passwords from memory after loading
-                connections.forEach(conn => {
-                    delete conn.password;
-                });
-            } else {
-                connections = [];
-            }
-            renderConnectionsTable();
+            this.disableButton(this.testConnectionBtn, 'Testing...');
+            const result = await PostgreSQLMonitorAPI.testConnection(connectionData);
+            console.log('Connection Test Result:', result);
+            this.showAlert('success', 'Connection test successful!');
         } catch (error) {
-            console.error('Error loading connections from localStorage:', error);
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">
-                Failed to load connections. ${error.message}</td></tr>`;
+            console.error('Connection Test Error:', error);
+            this.showAlert('danger', `Connection test failed: ${error.message}`);
+        } finally {
+            this.enableButton(this.testConnectionBtn, 'Test Connection');
         }
     }
 
-    // Render connections table
-    function renderConnectionsTable() {
-        const tbody = connectionsTable.querySelector('tbody');
-        
+    async saveNewConnection() {
+        console.log('Saving New Connection');
+        const connectionData = this.getConnectionFormData('add');
+
+        try {
+            this.disableButton(this.saveConnectionBtn, 'Saving...');
+            const newConnection = await PostgreSQLMonitorAPI.addConnection(connectionData);
+            console.log('New Connection:', newConnection);
+            this.showAlert('success', 'Connection added successfully!');
+            this.addConnectionModal.hide();
+            this.loadConnections();
+        } catch (error) {
+            console.error('Save Connection Error:', error);
+            this.showAlert('danger', `Failed to save connection: ${error.message}`);
+        } finally {
+            this.enableButton(this.saveConnectionBtn, 'Save Connection');
+        }
+    }
+
+    async loadConnections() {
+        try {
+            const connections = await PostgreSQLMonitorAPI.getConnections();
+            this.renderConnectionsTable(connections);
+        } catch (error) {
+            console.error('Load Connections Error:', error);
+            this.showAlert('danger', `Failed to load connections: ${error.message}`);
+        }
+    }
+
+    renderConnectionsTable(connections) {
+        const tbody = this.connectionsTable.querySelector('tbody');
+        tbody.innerHTML = '';
+
         if (connections.length === 0) {
             tbody.innerHTML = `
                 <tr>
@@ -78,25 +137,18 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        tbody.innerHTML = '';
-        
         connections.forEach(conn => {
             const row = document.createElement('tr');
-            
-            // Status badge color
-            const statusClass = conn.status === 'online' ? 'success' : 'danger';
+            const statusClass = conn.status === 'Connected' ? 'success' : 'danger';
             
             row.innerHTML = `
-                <td>${escapeHtml(conn.name)}</td>
-                <td>${escapeHtml(conn.host)}:${conn.port} ${conn.ssl ? '<i class="fas fa-lock text-success" title="SSL Enabled"></i>' : ''}</td>
-                <td>${escapeHtml(conn.database)}</td>
-                <td><span class="badge bg-${statusClass}">${conn.status || 'unknown'}</span></td>
+                <td>${this.escapeHtml(conn.name)}</td>
+                <td>${this.escapeHtml(conn.host)}:${conn.port} ${conn.ssl ? '<i class="fas fa-lock text-success" title="SSL Enabled"></i>' : ''}</td>
+                <td>${this.escapeHtml(conn.database)}</td>
+                <td><span class="badge bg-${statusClass}">${conn.status}</span></td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary test-conn-btn" data-id="${conn.id}" title="Test Connection">
-                            <i class="fas fa-vial"></i>
-                        </button>
-                        <button class="btn btn-outline-primary edit-conn-btn" data-id="${conn.id}" title="Edit Connection">
+                        <button class="btn btn-outline-info edit-conn-btn" data-id="${conn.id}" title="Edit Connection">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button class="btn btn-outline-danger delete-conn-btn" data-id="${conn.id}" title="Delete Connection">
@@ -108,22 +160,61 @@ document.addEventListener('DOMContentLoaded', function() {
             
             tbody.appendChild(row);
         });
-
-        // Add event listeners to the newly created buttons
-        addTableButtonListeners();
-        
-        // Save connections to localStorage (without passwords)
-        const connectionsToSave = connections.map(conn => {
-            // Create a copy without the password
-            const { password, ...connWithoutPassword } = conn;
-            return connWithoutPassword;
-        });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(connectionsToSave));
     }
 
-    // Escape HTML to prevent XSS
-    function escapeHtml(unsafe) {
-        if (unsafe === null || unsafe === undefined) return '';
+    getConnectionFormData(type) {
+        const nameField = type === 'add' ? 'connection-name' : 'edit-connection-name';
+        const hostField = type === 'add' ? 'connection-host' : 'edit-connection-host';
+        const portField = type === 'add' ? 'connection-port' : 'edit-connection-port';
+        const databaseField = type === 'add' ? 'connection-database' : 'edit-connection-database';
+        const usernameField = type === 'add' ? 'connection-username' : 'edit-connection-username';
+        const passwordField = type === 'add' ? 'connection-password' : 'edit-connection-password';
+        const sslField = type === 'add' ? 'connection-ssl' : 'edit-connection-ssl';
+
+        return {
+            name: document.getElementById(nameField).value.trim(),
+            host: document.getElementById(hostField).value.trim(),
+            port: parseInt(document.getElementById(portField).value),
+            database: document.getElementById(databaseField).value.trim(),
+            username: document.getElementById(usernameField).value.trim(),
+            password: document.getElementById(passwordField).value.trim(),
+            ssl: document.getElementById(sslField).checked
+        };
+    }
+
+    disableButton(button, loadingText) {
+        button.disabled = true;
+        button.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i> ${loadingText}`;
+    }
+
+    enableButton(button, originalText) {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+
+    showAlert(type, message) {
+        const alertContainer = document.createElement('div');
+        alertContainer.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+        alertContainer.style.zIndex = '1050';
+        alertContainer.setAttribute('role', 'alert');
+        
+        alertContainer.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        document.body.appendChild(alertContainer);
+        
+        // Auto-remove after 5 seconds for non-error alerts
+        if (type !== 'danger') {
+            setTimeout(() => {
+                alertContainer.classList.remove('show');
+                setTimeout(() => alertContainer.remove(), 150);
+            }, 5000);
+        }
+    }
+
+    escapeHtml(unsafe) {
         return unsafe
             .toString()
             .replace(/&/g, "&amp;")
@@ -132,455 +223,10 @@ document.addEventListener('DOMContentLoaded', function() {
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
+}
 
-    // Add event listeners to table action buttons
-    function addTableButtonListeners() {
-        // Test connection buttons
-        document.querySelectorAll('.test-conn-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const connId = parseInt(this.getAttribute('data-id'));
-                testExistingConnection(connId);
-            });
-        });
-
-        // Edit connection buttons
-        document.querySelectorAll('.edit-conn-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const connId = parseInt(this.getAttribute('data-id'));
-                openEditConnectionModal(connId);
-            });
-        });
-
-        // Delete connection buttons
-        document.querySelectorAll('.delete-conn-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const connId = parseInt(this.getAttribute('data-id'));
-                openDeleteConnectionModal(connId);
-            });
-        });
-    }
-
-    // Set up event listeners
-    function setupEventListeners() {
-        // Add Connection button
-        addConnectionBtn.addEventListener('click', function() {
-            document.getElementById('add-connection-form').reset();
-            addConnectionModal.show();
-        });
-
-        // Test Connection button in Add modal
-        testConnectionBtn.addEventListener('click', function() {
-            testNewConnection();
-        });
-
-        // Save Connection button in Add modal
-        saveConnectionBtn.addEventListener('click', function() {
-            saveNewConnection();
-        });
-
-        // Test Connection button in Edit modal
-        editTestConnectionBtn.addEventListener('click', function() {
-            testEditedConnection();
-        });
-
-        // Update Connection button in Edit modal
-        updateConnectionBtn.addEventListener('click', function() {
-            updateConnection();
-        });
-
-        // Confirm Delete button in Delete modal
-        confirmDeleteConnectionBtn.addEventListener('click', function() {
-            deleteConnection();
-        });
-
-        // Refresh Connections button
-        refreshConnectionsBtn.addEventListener('click', function() {
-            refreshConnections();
-        });
-    }
-
-    // Test new connection using direct PostgreSQL connection
-    function testNewConnection() {
-        const name = document.getElementById('connection-name').value;
-        const host = document.getElementById('connection-host').value;
-        const port = document.getElementById('connection-port').value;
-        const database = document.getElementById('connection-database').value;
-        const username = document.getElementById('connection-username').value;
-        const password = document.getElementById('connection-password').value;
-        const ssl = document.getElementById('connection-ssl').checked;
-
-        // Validate form fields
-        if (!validateConnectionForm(name, host, database, username, password)) {
-            return;
-        }
-
-        // Show testing indicator
-        saveConnectionBtn.disabled = true;
-        testConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
-        testConnectionBtn.disabled = true;
-
-        // Prepare connection data
-        const connectionData = {
-            name,
-            host,
-            port: parseInt(port),
-            database,
-            username,
-            password,
-            ssl
-        };
-
-        // Log connection attempt for debugging
-        console.log('Testing connection with data:', {
-            ...connectionData,
-            password: '********' // Hide password in logs
-        });
-
-        // Use the direct PgClient to test connection if available, otherwise fallback to API
-        if (window.PgClient) {
-            window.PgClient.testConnection(connectionData)
-                .then(handleConnectionTestResult)
-                .catch(handleConnectionTestError)
-                .finally(resetTestConnectionButton);
-        } else {
-            // Fallback to API if PgClient is not available
-            fetch('/api/connections/test', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(connectionData)
-            })
-            .then(response => response.json())
-            .then(handleConnectionTestResult)
-            .catch(handleConnectionTestError)
-            .finally(resetTestConnectionButton);
-        }
-    }
-
-    // Handler for successful connection test response
-    function handleConnectionTestResult(data) {
-        if (data.success) {
-            showAlert('success', `Connection successful! PostgreSQL ${data.version} detected.`);
-            
-            // If we have detailed information, log it for debugging
-            if (data.details) {
-                console.log('Connection details:', data.details);
-            }
-        } else {
-            // Show detailed error message
-            showAlert('danger', `<strong>Connection failed:</strong> ${data.error}`);
-            console.error('Connection test error details:', data.details);
-            
-            // Add detailed error to debug panel if it exists
-            if (isDebugMode()) {
-                appendToDebugPanel(`Connection Error: ${data.error}\n\nDetails: ${JSON.stringify(data.details, null, 2)}`);
-            }
-        }
-    }
-
-    // Handler for connection test errors
-    function handleConnectionTestError(error) {
-        showAlert('danger', `Connection test error: ${error.message}`);
-        console.error('Connection test exception:', error);
-        
-        // Add error to debug panel if it exists
-        if (isDebugMode()) {
-            appendToDebugPanel(`Connection Exception: ${error.message}\n\nStack: ${error.stack}`);
-        }
-    }
-
-    // Reset test connection button state
-    function resetTestConnectionButton() {
-        saveConnectionBtn.disabled = false;
-        testConnectionBtn.innerHTML = '<i class="fas fa-vial"></i> Test Connection';
-        testConnectionBtn.disabled = false;
-    }
-
-    // Save new connection
-    function saveNewConnection() {
-        const name = document.getElementById('connection-name').value;
-        const host = document.getElementById('connection-host').value;
-        const port = document.getElementById('connection-port').value;
-        const database = document.getElementById('connection-database').value;
-        const username = document.getElementById('connection-username').value;
-        const password = document.getElementById('connection-password').value;
-        const ssl = document.getElementById('connection-ssl').checked;
-
-        // Validate form fields
-        if (!validateConnectionForm(name, host, database, username, password)) {
-            return;
-        }
-
-        // Show saving indicator
-        saveConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        saveConnectionBtn.disabled = true;
-
-        // Test the connection first to ensure it works
-        const connectionData = {
-            name,
-            host,
-            port: parseInt(port),
-            database,
-            username,
-            password,
-            ssl
-        };
-
-        // Use direct database connection to test if available
-        const testConnection = window.PgClient ? 
-            window.PgClient.testConnection(connectionData) :
-            fetch('/api/connections/test', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(connectionData)
-            }).then(response => response.json());
-
-        testConnection
-            .then(result => {
-                if (result.success) {
-                    // Connection test successful, proceed with saving
-                    // Generate a unique ID for the new connection
-                    const newId = generateUniqueId();
-                    
-                    // Create connection object
-                    const newConnection = {
-                        id: newId,
-                        name: name,
-                        host: host,
-                        port: parseInt(port),
-                        database: database,
-                        username: username,
-                        status: 'online',
-                        ssl: ssl,
-                        version: result.version,
-                        lastTested: new Date().toISOString()
-                    };
-                    
-                    // Store the connection password in a secure way
-                    // In a real app, this would be encrypted or stored securely
-                    // For demonstration, we're using sessionStorage temporarily
-                    if (password) {
-                        sessionStorage.setItem(`pg-monitor-conn-pwd-${newId}`, password);
-                    }
-                    
-                    // Add to our connections array
-                    connections.push(newConnection);
-
-                    // Refresh the table
-                    renderConnectionsTable();
-
-                    // Hide the modal
-                    addConnectionModal.hide();
-
-                    // Reset the form
-                    document.getElementById('add-connection-form').reset();
-
-                    // Show success message
-                    showAlert('success', `Connection "${name}" has been added successfully.`);
-                } else {
-                    // Connection test failed, show error
-                    showAlert('danger', `Cannot save connection: ${result.error}`);
-                    console.error('Connection test failed during save:', result.details);
-                }
-            })
-            .catch(error => {
-                showAlert('danger', `Error testing connection: ${error.message}`);
-                console.error('Error during save connection test:', error);
-            })
-            .finally(() => {
-                // Reset button state
-                saveConnectionBtn.innerHTML = '<i class="fas fa-save"></i> Save Connection';
-                saveConnectionBtn.disabled = false;
-            });
-    }
-
-    // Generate a unique ID for new connections
-    function generateUniqueId() {
-        // Find the highest existing ID and increment by 1
-        const maxId = connections.length > 0 ? 
-            Math.max(...connections.map(c => c.id)) : 0;
-        return maxId + 1;
-    }
-
-    // Validate connection form
-    function validateConnectionForm(name, host, database, username, password) {
-        let isValid = true;
-        let errorMessage = '';
-
-        if (!name.trim()) {
-            errorMessage = 'Connection name is required.';
-            isValid = false;
-        } else if (!host.trim()) {
-            errorMessage = 'Host is required.';
-            isValid = false;
-        } else if (!database.trim()) {
-            errorMessage = 'Database name is required.';
-            isValid = false;
-        } else if (!username.trim()) {
-            errorMessage = 'Username is required.';
-            isValid = false;
-        } else if (!password && !document.getElementById('edit-connection-id')) {
-            // Only require password for new connections
-            errorMessage = 'Password is required.';
-            isValid = false;
-        }
-
-        if (!isValid) {
-            showAlert('danger', errorMessage);
-        }
-
-        return isValid;
-    }
-
-    // Test existing connection
-    function testExistingConnection(connId) {
-        const connection = connections.find(c => c.id === connId);
-        
-        if (!connection) {
-            showAlert('danger', 'Connection not found.');
-            return;
-        }
-
-        // Show testing alert
-        showAlert('info', `Testing connection to ${connection.name}...`, 'testing-alert');
-        
-        // Prepare connection data
-        const connectionData = {
-            ...connection,
-            // Retrieve the password from sessionStorage
-            password: sessionStorage.getItem(`pg-monitor-conn-pwd-${connId}`)
-        };
-
-        // Use direct database connection if available
-        const testConnection = window.PgClient ? 
-            window.PgClient.testConnection(connectionData) :
-            fetch(`/api/connections/${connId}/test`, {
-                method: 'POST'
-            }).then(response => response.json());
-
-        testConnection
-            .then(data => {
-                // Remove the testing alert
-                const alert = document.getElementById('testing-alert');
-                if (alert) {
-                    alert.remove();
-                }
-
-                if (data.success) {
-                    showAlert('success', `Connection to "${connection.name}" successful! PostgreSQL ${data.version} detected.`);
-                    
-                    // Update connection status and version
-                    connection.status = 'online';
-                    if (data.version) {
-                        connection.version = data.version;
-                    }
-                    connection.lastTested = new Date().toISOString();
-                    
-                    renderConnectionsTable();
-                } else {
-                    showAlert('danger', `<strong>Connection to "${connection.name}" failed:</strong> ${data.error}`);
-                    console.error('Connection test error details:', data.details);
-                    
-                    // Update status if it was online
-                    connection.status = 'offline';
-                    connection.lastTested = new Date().toISOString();
-                    
-                    renderConnectionsTable();
-                    
-                    // Add to debug panel if enabled
-                    if (isDebugMode()) {
-                        appendToDebugPanel(`Connection to "${connection.name}" failed:\n${data.error}\n\nDetails: ${JSON.stringify(data.details, null, 2)}`);
-                    }
-                }
-            })
-            .catch(error => {
-                const alert = document.getElementById('testing-alert');
-                if (alert) {
-                    alert.remove();
-                }
-                
-                showAlert('danger', `Error testing connection: ${error.message}`);
-                console.error('Test connection error:', error);
-                
-                // Update status
-                connection.status = 'error';
-                connection.lastTested = new Date().toISOString();
-                renderConnectionsTable();
-                
-                // Add to debug panel if enabled
-                if (isDebugMode()) {
-                    appendToDebugPanel(`Error testing connection to "${connection.name}":\n${error.message}\n\nStack: ${error.stack}`);
-                }
-            });
-    }
-
-    // Open edit connection modal
-    function openEditConnectionModal(connId) {
-        const connection = connections.find(c => c.id === connId);
-        
-        if (!connection) {
-            showAlert('danger', 'Connection not found.');
-            return;
-        }
-
-        // Populate the edit form
-        document.getElementById('edit-connection-id').value = connection.id;
-        document.getElementById('edit-connection-name').value = connection.name;
-        document.getElementById('edit-connection-host').value = connection.host;
-        document.getElementById('edit-connection-port').value = connection.port;
-        document.getElementById('edit-connection-database').value = connection.database;
-        document.getElementById('edit-connection-username').value = connection.username;
-        document.getElementById('edit-connection-password').value = ''; // Don't show the password
-        document.getElementById('edit-connection-ssl').checked = connection.ssl;
-
-        // Show the modal
-        editConnectionModal.show();
-    }
-
-    // Test edited connection
-    function testEditedConnection() {
-        const connId = parseInt(document.getElementById('edit-connection-id').value);
-        const name = document.getElementById('edit-connection-name').value;
-        const host = document.getElementById('edit-connection-host').value;
-        const port = document.getElementById('edit-connection-port').value;
-        const database = document.getElementById('edit-connection-database').value;
-        const username = document.getElementById('edit-connection-username').value;
-        const password = document.getElementById('edit-connection-password').value;
-        const ssl = document.getElementById('edit-connection-ssl').checked;
-
-        // Validate form fields (password can be empty for edit)
-        if (!validateEditConnectionForm(name, host, database, username)) {
-            return;
-        }
-
-        // Show testing indicator
-        updateConnectionBtn.disabled = true;
-        editTestConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
-        editTestConnectionBtn.disabled = true;
-
-        // Prepare connection data
-        const connectionData = {
-            id: connId,
-            name,
-            host,
-            port: parseInt(port),
-            database,
-            username,
-            ssl
-        };
-
-        // Use the stored password if no new password is provided
-        if (password) {
-            connectionData.password = password;
-        } else {
-            // Retrieve the stored password from sessionStorage
-            const storedPassword = sessionStorage.getItem(`pg-monitor-conn-pwd-${connId}`);
-            if (storedPassword) {
-                connectionData.password = storedPassword;
-            }
-        }
-
-        //
+// Ensure the script runs after DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM Fully Loaded - Initializing ConnectionManager');
+    new ConnectionManager();
+});
