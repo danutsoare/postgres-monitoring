@@ -1,94 +1,72 @@
-/**
- * PostgreSQL Monitoring Dashboard - API Communication
- * frontend/js/api.js
- * 
- * Handles all communication with the backend API
- */
+// PostgreSQL Monitor - API Handler
+const API = {
+    // Base URL for API requests
+    baseUrl: '/api',
 
-// Base API URL - change this to match your backend server
-const API_BASE_URL = 'http://localhost:3000/api';
-
-// API request helper with error handling
-async function apiRequest(endpoint, options = {}) {
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers
-            },
-            ...options
-        });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    // Test database connection
+    testConnection: async function(connectionConfig) {
+        try {
+            const response = await fetch(`${this.baseUrl}/connections/test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(connectionConfig)
+            });
+            
+            // Parse the response
+            const data = await response.json();
+            
+            // Log detailed error information if available
+            if (!data.success && data.details) {
+                console.error('Connection test error details:', data.details);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('API error during connection test:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to test connection due to network error',
+                details: error
+            };
         }
-
-        return await response.json();
-    } catch (error) {
-        console.error(`API Request Error (${endpoint}):`, error);
-        throw error;
-    }
-}
-
-// API interface object
-const api = {
-    // Version information
-    async getVersion() {
-        return await apiRequest('/version');
     },
-
-    // Session related endpoints
-    async getSessions() {
-        return await apiRequest('/sessions');
-    },
-
-    async getTopSessions() {
-        return await apiRequest('/sessions/top');
-    },
-
-    // Wait events
-    async getWaitEvents() {
-        return await apiRequest('/waits');
-    },
-
-    async getWaitEventsTimeline(hours = 1) {
-        return await apiRequest(`/history/waits?hours=${hours}`);
-    },
-
-    // Locks and blocking
-    async getBlockingSessionsHierarchy() {
-        return await apiRequest('/locks/blocking');
-    },
-
-    // Temporary space
-    async getTempSpaceUsage() {
-        return await apiRequest('/temp/usage');
-    },
-
-    async getTempSpaceTimeline(hours = 1) {
-        return await apiRequest(`/temp/timeline?hours=${hours}`);
-    },
-
-    // Queries
-    async getQueryStats() {
-        return await apiRequest('/queries/stats');
-    },
-
-    // Extensions
-    async getExtensions() {
-        return await apiRequest('/extensions');
-    },
-
-    // Historical data
-    async getHistoricalSessions(hours = 24, limit = 1000) {
-        return await apiRequest(`/history/sessions?hours=${hours}&limit=${limit}`);
-    },
-
-    // Force refresh all metrics
-    async refreshMetrics() {
-        return await apiRequest('/refresh', { method: 'POST' });
+    
+    // Format detailed error messages from PostgreSQL errors
+    formatPgError: function(error) {
+        if (!error) return 'Unknown error';
+        
+        // Extract specific PostgreSQL error codes and provide more helpful messages
+        if (error.code) {
+            switch (error.code) {
+                case 'ECONNREFUSED':
+                    return `Connection refused. The server at ${error.address || 'specified address'} is not accepting connections on port ${error.port || 'specified port'}.`;
+                case 'ETIMEDOUT':
+                    return `Connection timed out. Unable to reach the database server.`;
+                case 'ENOTFOUND':
+                    return `Host not found. Check if the hostname is correct.`;
+                case '28P01':
+                    return `Authentication failed. Check your username and password.`;
+                case '3D000':
+                    return `Database does not exist. Check the database name.`;
+                case '42P01':
+                    return `Table does not exist. Required table or schema is missing.`;
+                case '42501':
+                    return `Insufficient privileges. The user does not have required permissions.`;
+                case '53300':
+                    return `Too many connections. The server has reached its maximum connection limit.`;
+                default:
+                    if (error.message) {
+                        return error.message;
+                    }
+                    return `Database error (code: ${error.code})`;
+            }
+        }
+        
+        return error.message || 'Unknown database error';
     }
 };
 
-// Export the API interface
-window.postgresMonitorApi = api;
+// Export the API object
+window.API = API;

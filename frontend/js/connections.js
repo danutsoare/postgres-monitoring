@@ -13,42 +13,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const connectionsTable = document.getElementById('connections-table');
     const refreshConnectionsBtn = document.getElementById('refresh-connections-btn');
 
-    // Sample connection data (would be fetched from server in production)
-    let connections = [
-        {
-            id: 1,
-            name: 'Local Development',
-            host: 'localhost',
-            port: 5432,
-            database: 'postgres',
-            username: 'postgres',
-            status: 'online',
-            ssl: false,
-            version: '15.3'
-        },
-        {
-            id: 2,
-            name: 'Production Database',
-            host: 'pg-prod.example.com',
-            port: 5432,
-            database: 'app_db',
-            username: 'app_user',
-            status: 'online',
-            ssl: true,
-            version: '15.3'
-        },
-        {
-            id: 3,
-            name: 'Analytics Server',
-            host: 'pg-analytics.example.com',
-            port: 5432,
-            database: 'analytics',
-            username: 'analytics_user',
-            status: 'offline',
-            ssl: true,
-            version: '14.7'
-        }
-    ];
+    // Initialize connections array - will be populated from the backend
+    let connections = [];
 
     // Initialize the connections table
     function initConnectionsManager() {
@@ -56,9 +22,29 @@ document.addEventListener('DOMContentLoaded', function() {
         setupEventListeners();
     }
 
-    // Load connections data
+    // Load connections data from the backend
     function loadConnections() {
-        renderConnectionsTable();
+        // Show loading state
+        const tbody = connectionsTable.querySelector('tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading connections...</td></tr>';
+
+        // Fetch connections from the backend
+        fetch('/api/connections')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                connections = data;
+                renderConnectionsTable();
+            })
+            .catch(error => {
+                console.error('Error loading connections:', error);
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">
+                    Failed to load connections. ${error.message}</td></tr>`;
+            });
     }
 
     // Render connections table
@@ -143,6 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function setupEventListeners() {
         // Add Connection button
         addConnectionBtn.addEventListener('click', function() {
+            document.getElementById('add-connection-form').reset();
             addConnectionModal.show();
         });
 
@@ -196,21 +183,44 @@ document.addEventListener('DOMContentLoaded', function() {
         saveConnectionBtn.disabled = true;
         testConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
 
-        // Simulate API call with timeout
-        setTimeout(() => {
-            // In a real app, this would be an actual API call to test the connection
-            const success = Math.random() > 0.2; // 80% success rate for demo
+        // Prepare connection data
+        const connectionData = {
+            name,
+            host,
+            port: parseInt(port),
+            database,
+            username,
+            password,
+            ssl
+        };
 
-            if (success) {
-                showAlert('success', 'Connection successful! PostgreSQL 15.3 detected.');
+        // Send test connection request to backend
+        fetch('/api/connections/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(connectionData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', `Connection successful! PostgreSQL ${data.version} detected.`);
             } else {
-                showAlert('danger', 'Connection failed. Please check your credentials and network settings.');
+                // Show detailed error message for debugging
+                showAlert('danger', `<strong>Connection failed:</strong> ${data.error}`);
+                console.error('Connection test error details:', data.details);
             }
-
+        })
+        .catch(error => {
+            showAlert('danger', `Connection test failed: ${error.message}`);
+            console.error('Connection test error:', error);
+        })
+        .finally(() => {
             // Reset button state
             saveConnectionBtn.disabled = false;
             testConnectionBtn.innerHTML = '<i class="fas fa-vial"></i> Test Connection';
-        }, 1500);
+        });
     }
 
     // Save new connection
@@ -232,41 +242,56 @@ document.addEventListener('DOMContentLoaded', function() {
         saveConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         saveConnectionBtn.disabled = true;
 
-        // Simulate API call with timeout
-        setTimeout(() => {
-            // Create a new connection object
-            const newConnection = {
-                id: connections.length > 0 ? Math.max(...connections.map(c => c.id)) + 1 : 1,
-                name: name,
-                host: host,
-                port: parseInt(port),
-                database: database,
-                username: username,
-                // In a real app, we wouldn't store the password in the browser
-                status: 'online',
-                ssl: ssl,
-                version: '15.3' // This would be detected during the connection test
-            };
+        // Prepare connection data
+        const connectionData = {
+            name,
+            host,
+            port: parseInt(port),
+            database,
+            username,
+            password,
+            ssl
+        };
 
-            // Add to our connections array
-            connections.push(newConnection);
+        // Send save connection request to backend
+        fetch('/api/connections', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(connectionData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Add to our connections array
+                connections.push(data.connection);
 
-            // Refresh the table
-            renderConnectionsTable();
+                // Refresh the table
+                renderConnectionsTable();
 
-            // Hide the modal
-            addConnectionModal.hide();
+                // Hide the modal
+                addConnectionModal.hide();
 
-            // Reset the form
-            document.getElementById('add-connection-form').reset();
+                // Reset the form
+                document.getElementById('add-connection-form').reset();
 
-            // Show success message
-            showAlert('success', `Connection "${name}" has been added successfully.`);
-
+                // Show success message
+                showAlert('success', `Connection "${name}" has been added successfully.`);
+            } else {
+                showAlert('danger', `Failed to save connection: ${data.error}`);
+                console.error('Save connection error details:', data.details);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', `Error saving connection: ${error.message}`);
+            console.error('Save connection error:', error);
+        })
+        .finally(() => {
             // Reset button state
             saveConnectionBtn.innerHTML = '<i class="fas fa-save"></i> Save Connection';
             saveConnectionBtn.disabled = false;
-        }, 1000);
+        });
     }
 
     // Validate connection form
@@ -311,19 +336,20 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show testing alert
         showAlert('info', `Testing connection to ${connection.name}...`, 'testing-alert');
 
-        // Simulate API call with timeout
-        setTimeout(() => {
+        // Send test request to backend
+        fetch(`/api/connections/${connId}/test`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
             // Remove the testing alert
             const alert = document.getElementById('testing-alert');
             if (alert) {
                 alert.remove();
             }
 
-            // In a real app, this would be an actual API call to test the connection
-            const success = Math.random() > 0.2; // 80% success rate for demo
-
-            if (success) {
-                showAlert('success', `Connection to "${connection.name}" successful! PostgreSQL ${connection.version} detected.`);
+            if (data.success) {
+                showAlert('success', `Connection to "${connection.name}" successful! PostgreSQL ${data.version} detected.`);
                 
                 // Update status if it was offline
                 if (connection.status === 'offline') {
@@ -331,7 +357,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     renderConnectionsTable();
                 }
             } else {
-                showAlert('danger', `Connection to "${connection.name}" failed. Please check your credentials and network settings.`);
+                showAlert('danger', `<strong>Connection to "${connection.name}" failed:</strong> ${data.error}`);
+                console.error('Connection test error details:', data.details);
                 
                 // Update status if it was online
                 if (connection.status === 'online') {
@@ -339,7 +366,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     renderConnectionsTable();
                 }
             }
-        }, 1500);
+        })
+        .catch(error => {
+            showAlert('danger', `Error testing connection: ${error.message}`);
+            console.error('Test connection error:', error);
+        });
     }
 
     // Open edit connection modal
@@ -385,21 +416,44 @@ document.addEventListener('DOMContentLoaded', function() {
         updateConnectionBtn.disabled = true;
         editTestConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
 
-        // Simulate API call with timeout
-        setTimeout(() => {
-            // In a real app, this would be an actual API call to test the connection
-            const success = Math.random() > 0.2; // 80% success rate for demo
+        // Prepare connection data
+        const connectionData = {
+            id: connId,
+            name,
+            host,
+            port: parseInt(port),
+            database,
+            username,
+            password, // Include password only if provided
+            ssl
+        };
 
-            if (success) {
-                showAlert('success', 'Connection successful! PostgreSQL 15.3 detected.');
+        // Send test connection request to backend
+        fetch('/api/connections/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(connectionData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', `Connection successful! PostgreSQL ${data.version} detected.`);
             } else {
-                showAlert('danger', 'Connection failed. Please check your credentials and network settings.');
+                showAlert('danger', `<strong>Connection failed:</strong> ${data.error}`);
+                console.error('Connection test error details:', data.details);
             }
-
+        })
+        .catch(error => {
+            showAlert('danger', `Error testing connection: ${error.message}`);
+            console.error('Test connection error:', error);
+        })
+        .finally(() => {
             // Reset button state
             updateConnectionBtn.disabled = false;
             editTestConnectionBtn.innerHTML = '<i class="fas fa-vial"></i> Test Connection';
-        }, 1500);
+        });
     }
 
     // Validate edit connection form
@@ -444,49 +498,68 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Find the connection in our array
-        const connectionIndex = connections.findIndex(c => c.id === connId);
-        
-        if (connectionIndex === -1) {
-            showAlert('danger', 'Connection not found.');
-            return;
-        }
-
         // Show updating indicator
         updateConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
         updateConnectionBtn.disabled = true;
 
-        // Simulate API call with timeout
-        setTimeout(() => {
-            // Update the connection object
-            connections[connectionIndex] = {
-                ...connections[connectionIndex],
-                name: name,
-                host: host,
-                port: parseInt(port),
-                database: database,
-                username: username,
-                ssl: ssl
-            };
+        // Prepare connection data
+        const connectionData = {
+            name,
+            host,
+            port: parseInt(port),
+            database,
+            username,
+            ssl
+        };
 
-            // If password was provided, update it (in a real app, we'd send it to the server)
-            if (password) {
-                // We don't actually update the password in this demo
+        // Add password only if provided
+        if (password) {
+            connectionData.password = password;
+        }
+
+        // Send update connection request to backend
+        fetch(`/api/connections/${connId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(connectionData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Find and update the connection in our array
+                const connectionIndex = connections.findIndex(c => c.id === connId);
+                if (connectionIndex !== -1) {
+                    connections[connectionIndex] = {
+                        ...connections[connectionIndex],
+                        ...connectionData,
+                        id: connId // Ensure ID is preserved
+                    };
+                }
+
+                // Refresh the table
+                renderConnectionsTable();
+
+                // Hide the modal
+                editConnectionModal.hide();
+
+                // Show success message
+                showAlert('success', `Connection "${name}" has been updated successfully.`);
+            } else {
+                showAlert('danger', `Failed to update connection: ${data.error}`);
+                console.error('Update connection error details:', data.details);
             }
-
-            // Refresh the table
-            renderConnectionsTable();
-
-            // Hide the modal
-            editConnectionModal.hide();
-
-            // Show success message
-            showAlert('success', `Connection "${name}" has been updated successfully.`);
-
+        })
+        .catch(error => {
+            showAlert('danger', `Error updating connection: ${error.message}`);
+            console.error('Update connection error:', error);
+        })
+        .finally(() => {
             // Reset button state
             updateConnectionBtn.innerHTML = '<i class="fas fa-save"></i> Update Connection';
             updateConnectionBtn.disabled = false;
-        }, 1000);
+        });
     }
 
     // Open delete connection modal
@@ -529,24 +602,38 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmDeleteConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
         confirmDeleteConnectionBtn.disabled = true;
 
-        // Simulate API call with timeout
-        setTimeout(() => {
-            // Remove the connection from our array
-            connections.splice(connectionIndex, 1);
+        // Send delete connection request to backend
+        fetch(`/api/connections/${connId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the connection from our array
+                connections.splice(connectionIndex, 1);
 
-            // Refresh the table
-            renderConnectionsTable();
+                // Refresh the table
+                renderConnectionsTable();
 
-            // Hide the modal
-            deleteConnectionModal.hide();
+                // Hide the modal
+                deleteConnectionModal.hide();
 
-            // Show success message
-            showAlert('success', `Connection "${connectionName}" has been deleted successfully.`);
-
+                // Show success message
+                showAlert('success', `Connection "${connectionName}" has been deleted successfully.`);
+            } else {
+                showAlert('danger', `Failed to delete connection: ${data.error}`);
+                console.error('Delete connection error details:', data.details);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', `Error deleting connection: ${error.message}`);
+            console.error('Delete connection error:', error);
+        })
+        .finally(() => {
             // Reset button state
             confirmDeleteConnectionBtn.innerHTML = '<i class="fas fa-trash"></i> Delete Connection';
             confirmDeleteConnectionBtn.disabled = false;
-        }, 1000);
+        });
     }
 
     // Refresh connections
@@ -555,27 +642,28 @@ document.addEventListener('DOMContentLoaded', function() {
         refreshConnectionsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         refreshConnectionsBtn.disabled = true;
 
-        // Simulate API call with timeout
-        setTimeout(() => {
-            // In a real app, this would fetch fresh connection data from the server
-            
-            // Randomly change some connection statuses for demo purposes
-            connections.forEach(conn => {
-                if (Math.random() > 0.8) {
-                    conn.status = conn.status === 'online' ? 'offline' : 'online';
+        // Fetch updated connections from the backend
+        fetch('/api/connections')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
                 }
+                return response.json();
+            })
+            .then(data => {
+                connections = data;
+                renderConnectionsTable();
+                showAlert('success', 'Connections refreshed successfully.');
+            })
+            .catch(error => {
+                console.error('Error refreshing connections:', error);
+                showAlert('danger', `Failed to refresh connections: ${error.message}`);
+            })
+            .finally(() => {
+                // Reset button state
+                refreshConnectionsBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
+                refreshConnectionsBtn.disabled = false;
             });
-
-            // Refresh the table
-            renderConnectionsTable();
-
-            // Reset button state
-            refreshConnectionsBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
-            refreshConnectionsBtn.disabled = false;
-
-            // Show success message
-            showAlert('success', 'Connections refreshed successfully.');
-        }, 1000);
     }
 
     // Show alert
@@ -599,8 +687,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const alertContainer = document.createElement('div');
         alertContainer.className = 'alert-container';
         alertContainer.style.position = 'fixed';
-        alertContainer.style.top = '20px';
+        alertContainer.style.top = '80px';
         alertContainer.style.right = '20px';
+        alertContainer.style.maxWidth = '400px';
         alertContainer.style.zIndex = '9999';
         
         // Check if container already exists
@@ -613,14 +702,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add the alert to the container
         container.appendChild(alert);
         
-        // Auto-remove after 5 seconds for non-danger alerts
-        if (type !== 'danger' && !id) {
+        // Auto-remove after some time (longer for errors to allow reading)
+        const timeout = type === 'danger' ? 10000 : 5000;
+        if (!id) {
             setTimeout(() => {
                 if (alert && alert.parentNode) {
                     alert.classList.remove('show');
                     setTimeout(() => alert.remove(), 150);
                 }
-            }, 5000);
+            }, timeout);
         }
     }
 
