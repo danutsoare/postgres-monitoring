@@ -674,26 +674,54 @@ async function checkExtensionExists(connectionId, connection, extensionName) {
 
 // Get all database connections
 app.get('/api/connections', async (req, res) => {
-  try {
-    const result = await metricsDb.query(`
-      SELECT id, name, host, port, database, username, ssl, 
-             created_at, last_connected_at 
-      FROM database_connections
-      ORDER BY name
-    `);
-    
-    // Remove sensitive information
-    const connections = result.rows.map(conn => ({
-      ...conn,
-      password: undefined
-    }));
-    
-    res.json(connections);
-  } catch (error) {
-    logger.error('Error getting database connections:', error);
-    res.status(500).json({ error: 'Error getting database connections' });
-  }
-});
+    try {
+      const result = await metricsDb.query(`
+        SELECT id, name, host, port, database, username, ssl, 
+               created_at, last_connected_at 
+        FROM database_connections
+        ORDER BY name
+      `);
+      
+      // Actually test each connection instead of returning static status
+      const connections = await Promise.all(result.rows.map(async (conn) => {
+        let isConnected = false;
+        
+        try {
+          // Create a temporary connection for testing
+          const testPool = new Pool({
+            user: conn.username,
+            host: conn.host,
+            database: conn.database,
+            password: conn.password, // You'll need to decrypt this if stored encrypted
+            port: conn.port,
+            ssl: conn.ssl ? { rejectUnauthorized: false } : false,
+            connectionTimeoutMillis: 3000 // Short timeout for testing
+          });
+          
+          // Simple query to test connection
+          await testPool.query('SELECT 1');
+          isConnected = true;
+          
+          // Close test connection
+          await testPool.end();
+        } catch (error) {
+          logger.error(`Connection test failed for ${conn.name}:`, error);
+          isConnected = false;
+        }
+        
+        return {
+          ...conn,
+          password: undefined,
+          status: isConnected ? 'Connected' : 'Disconnected'
+        };
+      }));
+      
+      res.json(connections);
+    } catch (error) {
+      logger.error('Error getting database connections:', error);
+      res.status(500).json({ error: 'Error getting database connections' });
+    }
+  });
 
 // Add a new database connection
 app.post('/api/connections', async (req, res) => {
