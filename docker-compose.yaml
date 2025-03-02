@@ -2,7 +2,7 @@ services:
 
   # Metrics storage PostgreSQL database
   postgres_metrics:
-    image: postgres:latest
+    image: postgres:15.3
     container_name: postgres_metrics
     environment:
       POSTGRES_USER: postgres
