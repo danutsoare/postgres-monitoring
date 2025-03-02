@@ -1,13 +1,13 @@
 FROM nginx:alpine
 
-# Copy the HTML, CSS, and JavaScript files
+# Copy the entire project to the correct directory
 COPY . /usr/share/nginx/html
 
-# Copy custom nginx configuration if needed
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
-RUN touch /etc/nginx/mime.types
+# Ensure correct permissions
+RUN chmod -R 755 /usr/share/nginx/html
 
 # Expose HTTP port
 EXPOSE 80

@@ -47,6 +47,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add this route handler here
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+
 // Database connections management
 const databaseConnections = new Map();
 let metricsDb = null;
