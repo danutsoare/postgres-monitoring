@@ -1,4 +1,4 @@
-// connections.js
+// connections.js - Updated version
 import PostgreSQLMonitorAPI from './api.js';
 
 export default class ConnectionManager {
@@ -12,6 +12,7 @@ export default class ConnectionManager {
         this.testConnectionBtn = document.getElementById('test-connection-btn');
         this.updateConnectionBtn = document.getElementById('update-connection-btn');
         this.confirmDeleteConnectionBtn = document.getElementById('confirm-delete-connection-btn');
+        this.refreshConnectionsBtn = document.getElementById('refresh-connections-btn');
         
         // Modals
         this.addConnectionModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('add-connection-modal'));
@@ -25,6 +26,12 @@ export default class ConnectionManager {
         // Bind methods
         this.initEventListeners = this.initEventListeners.bind(this);
         this.resetAddConnectionForm = this.resetAddConnectionForm.bind(this);
+        this.testNewConnection = this.testNewConnection.bind(this);
+        this.saveNewConnection = this.saveNewConnection.bind(this);
+        this.loadConnections = this.loadConnections.bind(this);
+        
+        // Add debug button (temporary)
+        setTimeout(() => this.addDebugButton(), 1000);
         
         // Initialize
         this.initEventListeners();
@@ -37,7 +44,7 @@ export default class ConnectionManager {
         if (this.addConnectionBtn) {
             this.addConnectionBtn.addEventListener('click', (event) => {
                 console.log('Add Connection Button Clicked');
-                event.preventDefault();
+                // Modal is opened by data-bs-toggle and data-bs-target attributes
                 this.resetAddConnectionForm();
             });
         } else {
@@ -53,9 +60,39 @@ export default class ConnectionManager {
         if (this.saveConnectionBtn) {
             this.saveConnectionBtn.addEventListener('click', () => this.saveNewConnection());
         }
+        
+        // Refresh connections button
+        if (this.refreshConnectionsBtn) {
+            this.refreshConnectionsBtn.addEventListener('click', () => {
+                console.log('Refreshing connections...');
+                this.loadConnections();
+            });
+        }
 
         // Load connections
         this.loadConnections();
+    }
+    
+    addDebugButton() {
+        const debugBtn = document.createElement('button');
+        debugBtn.textContent = 'Debug API';
+        debugBtn.className = 'btn btn-sm btn-warning ms-2';
+        debugBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/connections');
+                const data = await response.json();
+                console.log('API response:', data);
+                alert(`API returned ${data.length} connections`);
+                this.renderConnectionsTable(data);
+            } catch (err) {
+                console.error('API request failed:', err);
+                alert(`API request failed: ${err.message}`);
+            }
+        });
+        
+        if (this.refreshConnectionsBtn && this.refreshConnectionsBtn.parentNode) {
+            this.refreshConnectionsBtn.parentNode.appendChild(debugBtn);
+        }
     }
 
     resetAddConnectionForm() {
@@ -64,14 +101,6 @@ export default class ConnectionManager {
         // Reset form
         if (this.addConnectionForm) {
             this.addConnectionForm.reset();
-        }
-
-        // Show modal
-        if (this.addConnectionModal) {
-            this.addConnectionModal.show();
-            console.log('Add Connection Modal Shown');
-        } else {
-            console.error('Add Connection Modal not found');
         }
     }
 
@@ -88,7 +117,7 @@ export default class ConnectionManager {
             console.error('Connection Test Error:', error);
             this.showAlert('danger', `Connection test failed: ${error.message}`);
         } finally {
-            this.enableButton(this.testConnectionBtn, 'Test Connection');
+            this.enableButton(this.testConnectionBtn, '<i class="fas fa-vial"></i> Test Connection');
         }
     }
 
@@ -107,17 +136,61 @@ export default class ConnectionManager {
             console.error('Save Connection Error:', error);
             this.showAlert('danger', `Failed to save connection: ${error.message}`);
         } finally {
-            this.enableButton(this.saveConnectionBtn, 'Save Connection');
+            this.enableButton(this.saveConnectionBtn, '<i class="fas fa-save"></i> Save Connection');
         }
     }
 
     async loadConnections() {
         try {
+            console.log('Loading connections from API...');
+            
+            // Add a visual loading indicator
+            const tbody = this.connectionsTable.querySelector('tbody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center">
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                            <div class="mt-2">Loading connections...</div>
+                        </td>
+                    </tr>
+                `;
+            }
+            
             const connections = await PostgreSQLMonitorAPI.getConnections();
+            console.log('Connections loaded:', connections);
             this.renderConnectionsTable(connections);
         } catch (error) {
             console.error('Load Connections Error:', error);
             this.showAlert('danger', `Failed to load connections: ${error.message}`);
+            
+            // Show error in table
+            const tbody = this.connectionsTable.querySelector('tbody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center text-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Error loading connections: ${error.message}
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-primary" id="retry-load-btn">
+                                    <i class="fas fa-sync"></i> Retry
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                
+                // Add retry button handler
+                const retryBtn = document.getElementById('retry-load-btn');
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', () => this.loadConnections());
+                }
+            }
         }
     }
 
@@ -160,6 +233,70 @@ export default class ConnectionManager {
             
             tbody.appendChild(row);
         });
+        
+        // Add event listeners to edit and delete buttons
+        this.addRowButtonListeners();
+    }
+    
+    addRowButtonListeners() {
+        // Edit buttons
+        const editButtons = document.querySelectorAll('.edit-conn-btn');
+        editButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const connectionId = e.currentTarget.getAttribute('data-id');
+                this.editConnection(connectionId);
+            });
+        });
+        
+        // Delete buttons
+        const deleteButtons = document.querySelectorAll('.delete-conn-btn');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const connectionId = e.currentTarget.getAttribute('data-id');
+                this.showDeleteConnectionConfirmation(connectionId);
+            });
+        });
+    }
+    
+    editConnection(connectionId) {
+        console.log(`Editing connection with ID: ${connectionId}`);
+        // You would need to fetch the connection details and populate the edit form
+        // Implementation would go here
+    }
+    
+    showDeleteConnectionConfirmation(connectionId) {
+        console.log(`Showing delete confirmation for connection ID: ${connectionId}`);
+        // Store the connection ID for deletion
+        this.connectionToDelete = connectionId;
+        // Show the delete confirmation modal
+        this.deleteConnectionModal.show();
+        
+        // Make sure the delete confirmation button has a click handler
+        if (this.confirmDeleteConnectionBtn) {
+            // Remove existing handlers
+            this.confirmDeleteConnectionBtn.replaceWith(this.confirmDeleteConnectionBtn.cloneNode(true));
+            this.confirmDeleteConnectionBtn = document.getElementById('confirm-delete-connection-btn');
+            
+            // Add new handler
+            this.confirmDeleteConnectionBtn.addEventListener('click', () => {
+                this.deleteConnection(this.connectionToDelete);
+            });
+        }
+    }
+    
+    async deleteConnection(connectionId) {
+        try {
+            this.disableButton(this.confirmDeleteConnectionBtn, 'Deleting...');
+            await PostgreSQLMonitorAPI.deleteConnection(connectionId);
+            this.showAlert('success', 'Connection deleted successfully!');
+            this.deleteConnectionModal.hide();
+            this.loadConnections();
+        } catch (error) {
+            console.error('Delete Connection Error:', error);
+            this.showAlert('danger', `Failed to delete connection: ${error.message}`);
+        } finally {
+            this.enableButton(this.confirmDeleteConnectionBtn, '<i class="fas fa-trash"></i> Delete Connection');
+        }
     }
 
     getConnectionFormData(type) {
@@ -224,9 +361,3 @@ export default class ConnectionManager {
             .replace(/'/g, "&#039;");
     }
 }
-
-// Ensure the script runs after DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM Fully Loaded - Initializing ConnectionManager');
-    new ConnectionManager();
-});
