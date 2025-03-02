@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+
+  # Metrics storage PostgreSQL database
+  postgres_metrics:
+    image: postgres:15.3
+    container_name: postgres_metrics
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres_metrics
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_metrics_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - postgres_monitor_network
+
+  # Backend API service
+  monitor_api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: postgres_monitor_api
+    environment:
+      - PORT=3000
+      - METRICS_PG_USER=postgres
+      - METRICS_PG_PASSWORD=postgres
+      - METRICS_PG_HOST=postgres_metrics
+      - METRICS_PG_DATABASE=postgres_metrics
+      - METRICS_PG_PORT=5432
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres_metrics:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - postgres_monitor_network
+
+  # Frontend web service
+  monitor_web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: postgres_monitor_web
+    ports:
+      - "80:80"
+    depends_on:
+      - monitor_api
+    restart: unless-stopped
+    networks:
+      - postgres_monitor_network
+
+  # Adminer for database administration (optional)
+  adminer:
+    image: adminer:latest
+    container_name: postgres_adminer
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres_metrics
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres_metrics
+    restart: unless-stopped
+    networks:
+      - postgres_monitor_network
+
+
+
+volumes:
+  postgres_metrics_data:
+
+networks:
+  postgres_monitor_network:
+    driver: bridge

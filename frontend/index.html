@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostgreSQL Monitoring Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <i class="fas fa-database me-2"></i>
+                <span>PostgreSQL Monitor</span>
+            </a>
+            <button class="navbar-toggler" type="button" id="sidebar-toggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <select class="form-select database-selector">
+                            <option value="all">All Databases</option>
+                            <option value="db1">application_db</option>
+                            <option value="db2">analytics_db</option>
+                            <option value="db3">reporting_db</option>
+                        </select>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="timeRangeDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="far fa-clock"></i> Last 1 hour
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="timeRangeDropdown">
+                            <li><a class="dropdown-item" href="#" data-range="1h">Last 1 hour</a></li>
+                            <li><a class="dropdown-item" href="#" data-range="3h">Last 3 hours</a></li>
+                            <li><a class="dropdown-item" href="#" data-range="6h">Last 6 hours</a></li>
+                            <li><a class="dropdown-item" href="#" data-range="12h">Last 12 hours</a></li>
+                            <li><a class="dropdown-item" href="#" data-range="24h">Last 24 hours</a></li>
+                            <li><a class="dropdown-item" href="#" data-range="7d">Last 7 days</a></li>
+                            <li><a class="dropdown-item" href="#" data-range="30d">Last 30 days</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" data-range="custom">Custom Range</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-circle"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                            <li><a class="dropdown-item" href="#" id="toggleDarkMode"><i class="fas fa-moon me-2"></i>Toggle Dark Mode</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link active" href="#" data-section="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="sessions">
+                    <i class="fas fa-users"></i>
+                    <span>Sessions</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="waits">
+                    <i class="fas fa-hourglass-half"></i>
+                    <span>Wait Events</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="locks">
+                    <i class="fas fa-lock"></i>
+                    <span>Locks & Blocking</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="queries">
+                    <i class="fas fa-code"></i>
+                    <span>Queries</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="storage">
+                    <i class="fas fa-hdd"></i>
+                    <span>Storage</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="history">
+                    <i class="fas fa-history"></i>
+                    <span>Historical Data</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="alerts">
+                    <i class="fas fa-bell"></i>
+                    <span>Alerts</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="extensions">
+                    <i class="fas fa-puzzle-piece"></i>
+                    <span>Extensions</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-section="about">
+                    <i class="fas fa-info-circle"></i>
+                    <span>About</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="content-section active">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Dashboard</h2>
+                <div class="version-badge">PostgreSQL 15.3</div>
+            </div>
+            
+            <div class="alert alert-secondary d-flex align-items-center" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <div>
+                    Last refreshed: <span id="last-refresh-time">March 2, 2025 15:30:45</span> | 
+                    Auto-refresh: <span id="auto-refresh-status">On (10s)</span>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary ms-auto" id="refresh-all-btn">
+                    <i class="fas fa-sync-alt"></i> Refresh Now
+                </button>
+            </div>
+            
+            <div class="row">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card metric-card h-100">
+                        <div class="card-body">
+                            <div class="value">42</div>
+                            <div class="title">Active Sessions</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card metric-card h-100">
+                        <div class="card-body">
+                            <div class="value">7</div>
+                            <div class="title">Blocking Sessions</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card metric-card h-100">
+                        <div class="card-body">
+                            <div class="value">128</div>
+                            <div class="title">TPS</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card metric-card h-100">
+                        <div class="card-body">
+                            <div class="value">780 MB</div>
+                            <div class="title">Temp Space Used</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>CPU Usage by Session</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="cpu-usage-chart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>Top Wait Events</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="wait-events-chart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>Top Resource-Consuming Sessions</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>PID</th>
+                                            <th>Username</th>
+                                            <th>Application</th>
+                                            <th>CPU %</th>
+                                            <th>Memory %</th>
+                                            <th>Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>12345</td>
+                                            <td>app_user</td>
+                                            <td>Backend API</td>
+                                            <td>28.5%</td>
+                                            <td>15.2%</td>
+                                            <td>00:05:28</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12348</td>
+                                            <td>analytics_user</td>
+                                            <td>Data Warehouse ETL</td>
+                                            <td>22.1%</td>
+                                            <td>31.8%</td>
+                                            <td>00:18:42</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12350</td>
+                                            <td>app_user</td>
+                                            <td>Frontend App</td>
+                                            <td>18.7%</td>
+                                            <td>8.5%</td>
+                                            <td>00:03:15</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12352</td>
+                                            <td>reporting_user</td>
+                                            <td>BI Tool</td>
+                                            <td>12.4%</td>
+                                            <td>21.3%</td>
+                                            <td>00:09:57</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12355</td>
+                                            <td>admin_user</td>
+                                            <td>pgAdmin</td>
+                                            <td>5.8%</td>
+                                            <td>4.2%</td>
+                                            <td>00:02:10</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>Temporary Space Usage</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <div class="progress">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 65%;" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100">65%</div>
+                                </div>
+                                <div class="progress-label">
+                                    <span>Used: 780 MB</span>
+                                    <span>Total: 1.2 GB</span>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>PID</th>
+                                            <th>Username</th>
+                                            <th>Query Type</th>
+                                            <th>Temp Usage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>12348</td>
+                                            <td>analytics_user</td>
+                                            <td>GROUP BY</td>
+                                            <td>320 MB</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12352</td>
+                                            <td>reporting_user</td>
+                                            <td>ORDER BY</td>
+                                            <td>215 MB</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12345</td>
+                                            <td>app_user</td>
+                                            <td>JOIN</td>
+                                            <td>145 MB</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12360</td>
+                                            <td>etl_user</td>
+                                            <td>DISTINCT</td>
+                                            <td>100 MB</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Locks & Blocking Section -->
+        <div id="locks-section" class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Locks & Blocking Sessions</h2>
+                <button class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div>Blocking Sessions Hierarchy</div>
+                </div>
+                <div class="card-body">
+                    <div class="tree-view">
+                        <ul>
+                            <li>
+                                <span class="blocking"><i class="fas fa-lock"></i> PID 12348 (analytics_user) - Running UPDATE query (8m 42s)</span>
+                                <ul>
+                                    <li>
+                                        <span class="blocked"><i class="fas fa-hourglass"></i> PID 12350 (app_user) - Waiting for row lock (45s)</span>
+                                        <ul>
+                                            <li>
+                                                <span class="blocked"><i class="fas fa-hourglass"></i> PID 12380 (app_user) - Waiting for row lock (12s)</span>
+                                            </li>
+                                            <li>
+                                                <span class="blocked"><i class="fas fa-hourglass"></i> PID 12385 (app_user) - Waiting for row lock (8s)</span>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <span class="blocked"><i class="fas fa-hourglass"></i> PID 12352 (reporting_user) - Waiting for row lock (32s)</span>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <span class="blocking"><i class="fas fa-lock"></i> PID 12360 (etl_user) - Running INSERT query (3m 15s)</span>
+                                <ul>
+                                    <li>
+                                        <span class="blocked"><i class="fas fa-hourglass"></i> PID 12370 (app_user) - Waiting for table lock (28s)</span>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>Lock Types Distribution</div>
+                        </div>
+                        <div class="card-body">
+                            <div id="lock-types-chart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>Locks by Object</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Object Name</th>
+                                            <th>Object Type</th>
+                                            <th>Lock Type</th>
+                                            <th>Lock Count</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>customers</td>
+                                            <td>Table</td>
+                                            <td>RowExclusiveLock</td>
+                                            <td>5</td>
+                                        </tr>
+                                        <tr>
+                                            <td>orders</td>
+                                            <td>Table</td>
+                                            <td>RowExclusiveLock</td>
+                                            <td>3</td>
+                                        </tr>
+                                        <tr>
+                                            <td>inventory</td>
+                                            <td>Table</td>
+                                            <td>AccessExclusiveLock</td>
+                                            <td>1</td>
+                                        </tr>
+                                        <tr>
+                                            <td>order_items</td>
+                                            <td>Table</td>
+                                            <td>ShareLock</td>
+                                            <td>2</td>
+                                        </tr>
+                                        <tr>
+                                            <td>customers_pkey</td>
+                                            <td>Index</td>
+                                            <td>ShareLock</td>
+                                            <td>1</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Wait Events Section -->
+        <div id="waits-section" class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Wait Events Analysis</h2>
+                <button class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div>Top Wait Events</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Wait Event</th>
+                                            <th>Wait Event Type</th>
+                                            <th>Count</th>
+                                            <th>Total Wait Time</th>
+                                            <th>Avg Wait Time</th>
+                                            <th>% of Total Waits</th>
+                                            <th>Trend</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>LWLock:buffer_content</td>
+                                            <td>LWLock</td>
+                                            <td>12,845</td>
+                                            <td>245.3s</td>
+                                            <td>19.1ms</td>
+                                            <td>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 35%;" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100">35%</div>
+                                                </div>
+                                            </td>
+                                            <td><span class="text-success"><i class="fas fa-arrow-down"></i> 5%</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>IO:DataFileRead</td>
+                                            <td>IO</td>
+                                            <td>8,432</td>
+                                            <td>187.6s</td>
+                                            <td>22.2ms</td>
+                                            <td>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 27%;" aria-valuenow="27" aria-valuemin="0" aria-valuemax="100">27%</div>
+                                                </div>
+                                            </td>
+                                            <td><span class="text-danger"><i class="fas fa-arrow-up"></i> 12%</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Lock:tuple</td>
+                                            <td>Lock</td>
+                                            <td>5,621</td>
+                                            <td>112.4s</td>
+                                            <td>20.0ms</td>
+                                            <td>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 16%;" aria-valuenow="16" aria-valuemin="0" aria-valuemax="100">16%</div>
+                                                </div>
+                                            </td>
+                                            <td><span class="text-warning"><i class="fas fa-arrows-alt-h"></i> 0%</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>IO:WALWrite</td>
+                                            <td>IO</td>
+                                            <td>4,236</td>
+                                            <td>84.7s</td>
+                                            <td>20.0ms</td>
+                                            <td>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 12%;" aria-valuenow="12" aria-valuemin="0" aria-valuemax="100">12%</div>
+                                                </div>
+                                            </td>
+                                            <td><span class="text-success"><i class="fas fa-arrow-down"></i> 8%</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>LWLock:buffer_mapping</td>
+                                            <td>LWLock</td>
+                                            <td>3,542</td>
+                                            <td>70.8s</td>
+                                            <td>20.0ms</td>
+                                            <td>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 10%;" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100">10%</div>
+                                                </div>
+                                            </td>
+                                            <td><span class="text-success"><i class="fas fa-arrow-down"></i> 3%</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>Wait Events Over Time</div>
+                        </div>
+                        <div class="card-body">
+                            <div id="wait-events-timeline" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>Wait Events by Session</div>
+                        </div>
+                        <div class="card-body">
+                            <div id="wait-events-by-session" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Storage Section -->
+        <div id="storage-section" class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Storage Analysis</h2>
+                <button class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div>Temporary Space Usage</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <div class="progress">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 65%;" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100">65%</div>
+                                </div>
+                                <div class="progress-label">
+                                    <span>Used: 780 MB</span>
+                                    <span>Total: 1.2 GB</span>
+                                </div>
+                            </div>
+                            <div id="temp-space-timeline" style="height: 250px;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <div>Top Temp Space Consumers</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>PID</th>
+                                            <th>Username</th>
+                                            <th>Database</th>
+                                            <th>Query Type</th>
+                                            <th>Temp Usage</th>
+                                            <th>% of Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>12348</td>
+                                            <td>analytics_user</td>
+                                            <td>analytics_db</td>
+                                            <td>GROUP BY</td>
+                                            <td>320 MB</td>
+                                            <td>41.0%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12352</td>
+                                            <td>reporting_user</td>
+                                            <td>reporting_db</td>
+                                            <td>ORDER BY</td>
+                                            <td>215 MB</td>
+                                            <td>27.6%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12345</td>
+                                            <td>app_user</td>
+                                            <td>application_db</td>
+                                            <td>JOIN</td>
+                                            <td>145 MB</td>
+                                            <td>18.6%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>12360</td>
+                                            <td>etl_user</td>
+                                            <td>analytics_db</td>
+                                            <td>DISTINCT</td>
+                                            <td>100 MB</td>
+                                            <td>12.8%</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div>Temporary Space Usage Patterns</div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div id="temp-space-by-hour" style="height: 300px;"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="temp-space-by-query-type" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Extensions Section -->
+        <div id="extensions-section" class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>PostgreSQL Extensions</h2>
+                <button class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div>Installed Extensions</div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Extension Name</th>
+                                    <th>Version</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>pg_stat_statements</td>
+                                    <td>1.10</td>
+                                    <td>Track planning and execution statistics of all SQL statements executed</td>
+                                    <td><span class="badge bg-success">Enabled</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info"><i class="fas fa-chart-line"></i> View Stats</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>pg_buffercache</td>
+                                    <td>1.3</td>
+                                    <td>Examine the shared buffer cache</td>
+                                    <td><span class="badge bg-success">Enabled</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info"><i class="fas fa-chart-line"></i> View Stats</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>pg_stat_bgwriter</td>
+                                    <td>1.0</td>
+                                    <td>Statistics about the background writer process's activity</td>
+                                    <td><span class="badge bg-success">Enabled</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info"><i class="fas fa-chart-line"></i> View Stats</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>pg_stat_activity</td>
+                                    <td>1.0</td>
+                                    <td>Shows information about currently running database processes</td>
+                                    <td><span class="badge bg-success">Enabled</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info"><i class="fas fa-chart-line"></i> View Stats</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>pg_wait_sampling</td>
+                                    <td>1.1</td>
+                                    <td>Collect sampling of wait events</td>
+                                    <td><span class="badge bg-success">Enabled</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info"><i class="fas fa-chart-line"></i> View Stats</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>pg_stat_monitor</td>
+                                    <td>2.0</td>
+                                    <td>Enhanced query performance monitoring tool</td>
+                                    <td><span class="badge bg-success">Enabled</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info"><i class="fas fa-chart-line"></i> View Stats</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>pgstattuple</td>
+                                    <td>1.5</td>
+                                    <td>Provides functions to obtain tuple-level statistics</td>
+                                    <td><span class="badge bg-success">Enabled</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info"><i class="fas fa-chart-line"></i> View Stats</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>pg_visibility</td>
+                                    <td>1.2</td>
+                                    <td>Examines the visibility map and page-level visibility info</td>
+                                    <td><span class="badge bg-secondary">Disabled</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-success"><i class="fas fa-power-off"></i> Enable</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>Extension Insights</div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="mb-3">pg_stat_statements</h5>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Query ID</th>
+                                            <th>Calls</th>
+                                            <th>Total Time</th>
+                                            <th>Avg Time</th>
+                                            <th>Rows</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>-8743211956420</td>
+                                            <td>5,428</td>
+                                            <td>243.5s</td>
+                                            <td>44.9ms</td>
+                                            <td>1,254,862</td>
+                                        </tr>
+                                        <tr>
+                                            <td>-6548792145687</td>
+                                            <td>12,847</td>
+                                            <td>128.5s</td>
+                                            <td>10.0ms</td>
+                                            <td>825,475</td>
+                                        </tr>
+                                        <tr>
+                                            <td>-2457896321458</td>
+                                            <td>3,254</td>
+                                            <td>98.7s</td>
+                                            <td>30.3ms</td>
+                                            <td>548,236</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div>pg_buffercache Analysis</div>
+                        </div>
+                        <div class="card-body">
+                            <div id="buffer-cache-chart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- About Section -->
+        <div id="about-section" class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>About PostgreSQL Monitor</h2>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h4>PostgreSQL Monitoring Dashboard</h4>
+                    <p class="mb-4">A comprehensive monitoring solution for PostgreSQL databases, providing real-time and historical insights into database performance, resource usage, and health.</p>
+                    
+                    <h5>Features</h5>
+                    <ul>
+                        <li>Real-time monitoring of database activity</li>
+                        <li>Session resource usage tracking and identification of resource-intensive sessions</li>
+                        <li>Wait event analysis for performance bottlenecks</li>
+                        <li>Blocking session hierarchies visualization</li>
+                        <li>Temporary space usage monitoring</li>
+                        <li>Historical data collection and trend analysis</li>
+                        <li>Support for PostgreSQL versions 10 through 15</li>
+                        <li>Integration with PostgreSQL extensions for deeper insights</li>
+                    </ul>
+                    
+                    <h5>PostgreSQL Extension Support</h5>
+                    <p>This dashboard integrates with the following PostgreSQL extensions:</p>
+                    <ul>
+                        <li><strong>pg_stat_statements</strong> - For query performance analysis</li>
+                        <li><strong>pg_buffercache</strong> - To examine shared buffer usage</li>
+                        <li><strong>pg_stat_bgwriter</strong> - For background writer statistics</li>
+                        <li><strong>pg_wait_sampling</strong> - For detailed wait event analysis</li>
+                        <li><strong>pg_stat_monitor</strong> - For enhanced query monitoring</li>
+                        <li><strong>pgstattuple</strong> - For tuple-level statistics</li>
+                        <li><strong>pg_visibility</strong> - For visibility map examination</li>
+                    </ul>
+                    
+                    <h5>System Requirements</h5>
+                    <ul>
+                        <li>Docker Engine 20.10.0 or higher</li>
+                        <li>PostgreSQL 10 or higher</li>
+                        <li>Modern web browser with JavaScript enabled</li>
+                    </ul>
+                    
+                    <div class="mt-4 d-flex gap-2">
+                        <button class="btn btn-primary"><i class="fas fa-book"></i> Documentation</button>
+                        <button class="btn btn-secondary"><i class="fab fa-github"></i> GitHub Repository</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="settingsModalLabel">Dashboard Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="true">General</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="data-collection-tab" data-bs-toggle="tab" data-bs-target="#data-collection" type="button" role="tab" aria-controls="data-collection" aria-selected="false">Data Collection</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="alerts-tab" data-bs-toggle="tab" data-bs-target="#alerts-settings" type="button" role="tab" aria-controls="alerts-settings" aria-selected="false">Alerts</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="connections-tab" data-bs-toggle="tab" data-bs-target="#connections" type="button" role="tab" aria-controls="connections" aria-selected="false">Connections</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content p-3" id="settingsTabsContent">
+                        <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
+                            <div class="settings-section">
+                                <h5>Dashboard Preferences</h5>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="darkModeSwitch" checked>
+                                    <label class="form-check-label" for="darkModeSwitch">Dark Mode</label>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="refreshInterval" class="form-label">Auto-refresh Interval</label>
+                                    <select class="form-select" id="refreshInterval">
+                                        <option value="5">5 seconds</option>
+                                        <option value="10" selected>10 seconds</option>
+                                        <option value="30">30 seconds</option>
+                                        <option value="60">1 minute</option>
+                                        <option value="300">5 minutes</option>
+                                        <option value="0">Disabled</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="showTooltipsSwitch" checked>
+                                    <label class="form-check-label" for="showTooltipsSwitch">Show Detailed Tooltips</label>
+                                </div>
+                            </div>
+                            <div class="settings-section">
+                                <h5>Chart Settings</h5>
+                                <div class="mb-3">
+                                    <label for="chartTheme" class="form-label">Chart Theme</label>
+                                    <select class="form-select" id="chartTheme">
+                                        <option value="light">Light</option>
+                                        <option value="dark" selected>Dark</option>
+                                        <option value="colorful">Colorful</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="animateChartsSwitch" checked>
+                                    <label class="form-check-label" for="animateChartsSwitch">Animate Charts</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="data-collection" role="tabpanel" aria-labelledby="data-collection-tab">
+                            <div class="settings-section">
+                                <h5>Data Collection Settings</h5>
+                                <div class="mb-3">
+                                    <label for="dataRetentionPeriod" class="form-label">Data Retention Period</label>
+                                    <select class="form-select" id="dataRetentionPeriod">
+                                        <option value="7">7 days</option>
+                                        <option value="30" selected>30 days</option>
+                                        <option value="90">90 days</option>
+                                        <option value="180">6 months</option>
+                                        <option value="365">1 year</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="samplingInterval" class="form-label">Metrics Sampling Interval</label>
+                                    <select class="form-select" id="samplingInterval">
+                                        <option value="5">5 seconds</option>
+                                        <option value="10" selected>10 seconds</option>
+                                        <option value="30">30 seconds</option>
+                                        <option value="60">1 minute</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="settings-section">
+                                <h5>Monitored Metrics</h5>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="collectSessionMetricsSwitch" checked>
+                                    <label class="form-check-label" for="collectSessionMetricsSwitch">Session Metrics</label>
+                                </div>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="collectQueryMetricsSwitch" checked>
+                                    <label class="form-check-label" for="collectQueryMetricsSwitch">Query Performance Metrics</label>
+                                </div>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="collectWaitEventsSwitch" checked>
+                                    <label class="form-check-label" for="collectWaitEventsSwitch">Wait Events</label>
+                                </div>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="collectLockInfoSwitch" checked>
+                                    <label class="form-check-label" for="collectLockInfoSwitch">Lock Information</label>
+                                </div>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="collectTempSpaceSwitch" checked>
+                                    <label class="form-check-label" for="collectTempSpaceSwitch">Temporary Space Usage</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="alerts-settings" role="tabpanel" aria-labelledby="alerts-tab">
+                            <div class="settings-section">
+                                <h5>Alert Configuration</h5>
+                                <div class="mb-3 form-check form-switch custom-switch">
+                                    <input class="form-check-input" type="checkbox" id="enableAlertsSwitch" checked>
+                                    <label class="form-check-label" for="enableAlertsSwitch">Enable Alerts</label>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="alertChannels" class="form-label">Alert Channels</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="emailAlertsCheck" checked>
+                                        <label class="form-check-label" for="emailAlertsCheck">
+                                            Email
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="slackAlertsCheck" checked>
+                                        <label class="form-check-label" for="slackAlertsCheck">
+                                            Slack
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="webhookAlertsCheck">
+                                        <label class="form-check-label" for="webhookAlertsCheck">
+                                            Webhook
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="settings-section">
+                                <h5>Alert Thresholds</h5>
+                                <div class="mb-3">
+                                    <label for="tempSpaceThreshold" class="form-label">Temporary Space Usage Threshold (%)</label>
+                                    <input type="range" class="form-range" min="50" max="95" step="5" id="tempSpaceThreshold" value="75">
+                                    <div class="d-flex justify-content-between">
+                                        <span>50%</span>
+                                        <span>Current: 75%</span>
+                                        <span>95%</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="longRunningQueryThreshold" class="form-label">Long-Running Query Threshold (minutes)</label>
+                                    <input type="number" class="form-control" id="longRunningQueryThreshold" value="10" min="1" max="60">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="blockingSessionThreshold" class="form-label">Blocking Session Alert Threshold (seconds)</label>
+                                    <input type="number" class="form-control" id="blockingSessionThreshold" value="30" min="5" max="300">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="connections" role="tabpanel" aria-labelledby="connections-tab">
+                            <div class="settings-section">
+                                <h5>Database Connections</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Host</th>
+                                                <th>Database</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Production DB</td>
+                                                <td>postgres-prod.example.com</td>
+                                                <td>application_db</td>
+                                                <td><span class="badge bg-success">Connected</span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Analytics DB</td>
+                                                <td>postgres-analytics.example.com</td>
+                                                <td>analytics_db</td>
+                                                <td><span class="badge bg-success">Connected</span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Reporting DB</td>
+                                                <td>postgres-reporting.example.com</td>
+                                                <td>reporting_db</td>
+                                                <td><span class="badge bg-success">Connected</span></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <button class="btn btn-primary mt-3"><i class="fas fa-plus"></i> Add Connection</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.0/apexcharts.min.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

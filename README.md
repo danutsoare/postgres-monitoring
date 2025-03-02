@@ -21,8 +21,7 @@ The monitoring solution consists of multiple components:
 
 1. **Frontend Dashboard**: HTML5/CSS/JavaScript web interface
 2. **Backend API**: Node.js/Express service that collects and provides metrics
-3. **Monitored PostgreSQL**: The database(s) being monitored
-4. **Metrics Storage**: PostgreSQL database for historical data storage
+3. **Metrics Storage**: PostgreSQL database for historical data storage
 
 ## Prerequisites
 
@@ -45,18 +44,13 @@ The monitoring solution consists of multiple components:
 
 3. Access the dashboard:
    - Dashboard UI: http://localhost
-   - Adminer (database administration): http://localhost:8080
+   - Adminer (metrics database administration): http://localhost:8080
 
 ## Configuration
 
 ### Environment Variables
 
 The following environment variables can be set in the docker-compose.yml file:
-
-- For the monitored PostgreSQL database:
-  - `POSTGRES_USER`: PostgreSQL username (default: postgres)
-  - `POSTGRES_PASSWORD`: PostgreSQL password (default: postgres)
-  - `POSTGRES_DB`: PostgreSQL database name (default: postgres)
 
 - For the metrics storage database:
   - `METRICS_PG_USER`: PostgreSQL username (default: postgres)
@@ -101,6 +95,7 @@ postgres-monitoring/
 │   ├── Dockerfile              # Backend container configuration
 │   ├── package.json            # Node.js dependencies
 │   ├── server.js               # Main backend application
+│   ├── config.js               # Optional configuration for external database connections
 │   └── logs/                   # Log files directory
 ├── frontend/                   # Frontend web application
 │   ├── Dockerfile              # Frontend container configuration
@@ -112,8 +107,6 @@ postgres-monitoring/
 │   │   ├── charts.js           # Chart rendering code
 │   │   └── api.js              # API communication
 │   └── img/                    # Images and icons
-├── init-scripts/               # Database initialization
-│   └── init-monitored-db.sql   # PostgreSQL setup script
 └── README.md                   # Project documentation
 ```
 
@@ -121,9 +114,9 @@ postgres-monitoring/
 
 For development purposes, you can run the frontend and backend separately:
 
-1. Start PostgreSQL databases:
+1. Start the metrics storage database:
    ```
-   docker-compose up -d postgres postgres_metrics
+   docker-compose up -d postgres_metrics
    ```
 
 2. Run the backend in development mode:
@@ -245,15 +238,16 @@ docker-compose restart monitor_api
 
 ### Common Issues
 
-- **Dashboard shows no data**: Check if the backend API is running and can connect to PostgreSQL
-- **Extensions not available**: Some extensions require installation in PostgreSQL
+- **Dashboard shows no data**: Check if the backend API is running and can connect to your PostgreSQL databases
+- **Extensions not available**: Some extensions require installation in your PostgreSQL instance
 - **High memory usage**: Adjust the metrics collection interval in settings
 - **Slow performance**: Consider reducing the data retention period
+- **Connection failures**: Check network connectivity and credentials for your PostgreSQL databases
 
 ### Logs
 
 - Backend logs: `docker-compose logs -f monitor_api`
-- PostgreSQL logs: `docker-compose logs -f postgres`
+- Metrics storage logs: `docker-compose logs -f postgres_metrics`
 
 ## License
 
