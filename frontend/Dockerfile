@@ -7,6 +7,8 @@ COPY . /usr/share/nginx/html
 # COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 
+RUN touch /etc/nginx/mime.types
+
 # Expose HTTP port
 EXPOSE 80
 
