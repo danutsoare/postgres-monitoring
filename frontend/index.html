@@ -389,26 +389,30 @@
         </div>
     </div>
 
-    <!-- JavaScript Dependencies -->
-    <!-- JavaScript Dependencies -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.0/apexcharts.min.js"></script>
-    <script src="js/charts.js"></script>
-    <script src="js/dashboard.js"></script>
-    <script type="module">
-        import './js/api.js';
-        import './js/connections.js';
-    </script>
-    
-    <!-- Use type="module" for ES6 modules -->
-    <script type="module">
+<!-- JavaScript Dependencies -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.0/apexcharts.min.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/dashboard.js"></script>
+
+<!-- Load modules -->
+<script type="module">
+    import PostgreSQLMonitorAPI from './js/api.js';
     import ConnectionManager from './js/connections.js';
     
+    // Make API available globally for other scripts
+    window.postgresMonitorApi = PostgreSQLMonitorAPI;
+    
+    // Initialize connection manager when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('Initializing ConnectionManager');
+        window.connectionManager = new ConnectionManager();
+    });
+    
+    // Global error handler
     window.addEventListener('error', (event) => {
         console.error('Uncaught error:', event.error);
         alert(`An error occurred: ${event.error.message}`);
     });
-    </script>
-</body>
-</html>
+</script>
