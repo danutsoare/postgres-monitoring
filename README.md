@@ -33,7 +33,7 @@ The monitoring solution consists of multiple components:
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/postgres-monitoring.git
+   git clone https://github.com/danutsoare/postgres-monitoring.git
    cd postgres-monitoring
    ```
 
