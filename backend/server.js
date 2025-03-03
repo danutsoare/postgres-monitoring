@@ -966,11 +966,21 @@ app.delete('/api/connections/:id', async (req, res) => {
 // Test a database connection
 app.post('/api/connections/test', async (req, res) => {
   try {
-    const { host, port, database, username, password, ssl } = req.body;
+    const { id, host, port, database, username, password, ssl, useExistingPassword } = req.body;
     
     // Validate required fields
-    if (!host || !database || !username || !password) {
+    if (!host || !database || !username) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    let testPassword = password;
+    
+    // If using existing password and we have an ID, get the password from the database
+    if (useExistingPassword && id) {
+      const result = await metricsDb.query('SELECT password FROM database_connections WHERE id = $1', [id]);
+      if (result.rows.length > 0) {
+        testPassword = result.rows[0].password;
+      }
     }
     
     // Create test connection
@@ -978,7 +988,7 @@ app.post('/api/connections/test', async (req, res) => {
       user: username,
       host,
       database,
-      password,
+      password: testPassword,
       port: port || 5432,
       ssl: ssl ? { rejectUnauthorized: false } : false,
       connectionTimeoutMillis: 5000

@@ -121,7 +121,17 @@ export default class ConnectionManager {
     async testExistingConnection() {
         console.log('Testing Existing Connection');
         const connectionData = this.getConnectionFormData('edit');
-
+        
+        // Find the current connection to get the existing password if needed
+        const currentConnection = this.connections.find(conn => conn.id === this.connectionToEdit);
+        
+        // If password is blank and we have the current connection, use the stored password
+        if (connectionData.password === '' && currentConnection) {
+            // Note: The actual password isn't available client-side for security
+            // We need to handle this on the server side
+            connectionData.useExistingPassword = true;
+        }
+    
         try {
             this.disableButton(this.editTestConnectionBtn, 'Testing...');
             const result = await window.postgresMonitorApi.testConnection(connectionData);
