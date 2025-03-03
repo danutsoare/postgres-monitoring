@@ -1,4 +1,4 @@
-// Fixed ConnectionManager class with proper deletion handling
+// ConnectionManager class with properly fixed deleteConnection method and API reference
 export default class ConnectionManager {
     constructor() {
         console.log('ConnectionManager initialized');
@@ -91,7 +91,7 @@ export default class ConnectionManager {
 
         try {
             this.disableButton(this.testConnectionBtn, 'Testing...');
-            const result = await PostgreSQLMonitorAPI.testConnection(connectionData);
+            const result = await window.postgresMonitorApi.testConnection(connectionData);
             console.log('Connection Test Result:', result);
             this.showAlert('success', 'Connection test successful!');
         } catch (error) {
@@ -108,7 +108,7 @@ export default class ConnectionManager {
 
         try {
             this.disableButton(this.saveConnectionBtn, 'Saving...');
-            const newConnection = await PostgreSQLMonitorAPI.addConnection(connectionData);
+            const newConnection = await window.postgresMonitorApi.addConnection(connectionData);
             console.log('New Connection:', newConnection);
             this.showAlert('success', 'Connection added successfully!');
             this.addConnectionModal.hide();
@@ -142,7 +142,7 @@ export default class ConnectionManager {
                 `;
             }
             
-            const connections = await PostgreSQLMonitorAPI.getConnections();
+            const connections = await window.postgresMonitorApi.getConnections();
             console.log('Connections loaded:', connections);
             this.renderConnectionsTable(connections);
         } catch (error) {
@@ -261,7 +261,7 @@ export default class ConnectionManager {
         try {
             this.disableButton(this.confirmDeleteConnectionBtn, 'Deleting...');
             
-            await PostgreSQLMonitorAPI.deleteConnection(connectionId);
+            await window.postgresMonitorApi.deleteConnection(connectionId);
             
             this.showAlert('success', 'Connection deleted successfully!');
             this.deleteConnectionModal.hide();
