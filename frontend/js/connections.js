@@ -1,4 +1,4 @@
-// ConnectionManager class with properly fixed deleteConnection method and API reference
+// Fixed ConnectionManager class with proper edit functionality and test button
 export default class ConnectionManager {
     constructor() {
         console.log('ConnectionManager initialized');
@@ -9,6 +9,7 @@ export default class ConnectionManager {
         this.saveConnectionBtn = document.getElementById('save-connection-btn');
         this.testConnectionBtn = document.getElementById('test-connection-btn');
         this.updateConnectionBtn = document.getElementById('update-connection-btn');
+        this.editTestConnectionBtn = document.getElementById('edit-test-connection-btn');
         this.confirmDeleteConnectionBtn = document.getElementById('confirm-delete-connection-btn');
         this.refreshConnectionsBtn = document.getElementById('refresh-connections-btn');
         
@@ -21,15 +22,20 @@ export default class ConnectionManager {
         this.addConnectionForm = document.getElementById('add-connection-form');
         this.editConnectionForm = document.getElementById('edit-connection-form');
         
-        // Instance variable to store connection ID for deletion
+        // Instance variables
         this.connectionToDelete = null;
+        this.connectionToEdit = null;
+        this.connections = []; // Store loaded connections
         
         // Bind methods
         this.initEventListeners = this.initEventListeners.bind(this);
         this.resetAddConnectionForm = this.resetAddConnectionForm.bind(this);
         this.testNewConnection = this.testNewConnection.bind(this);
+        this.testExistingConnection = this.testExistingConnection.bind(this);
         this.saveNewConnection = this.saveNewConnection.bind(this);
+        this.updateConnection = this.updateConnection.bind(this);
         this.loadConnections = this.loadConnections.bind(this);
+        this.editConnection = this.editConnection.bind(this);
         this.deleteConnection = this.deleteConnection.bind(this);
         this.showDeleteConnectionConfirmation = this.showDeleteConnectionConfirmation.bind(this);
         
@@ -49,14 +55,24 @@ export default class ConnectionManager {
             });
         }
 
-        // Test Connection Button
+        // Test Connection Button (Add form)
         if (this.testConnectionBtn) {
             this.testConnectionBtn.addEventListener('click', () => this.testNewConnection());
+        }
+        
+        // Test Connection Button (Edit form)
+        if (this.editTestConnectionBtn) {
+            this.editTestConnectionBtn.addEventListener('click', () => this.testExistingConnection());
         }
 
         // Save Connection Button
         if (this.saveConnectionBtn) {
             this.saveConnectionBtn.addEventListener('click', () => this.saveNewConnection());
+        }
+        
+        // Update Connection Button
+        if (this.updateConnectionBtn) {
+            this.updateConnectionBtn.addEventListener('click', () => this.updateConnection());
         }
         
         // Refresh connections button
@@ -101,6 +117,23 @@ export default class ConnectionManager {
             this.enableButton(this.testConnectionBtn, '<i class="fas fa-vial"></i> Test Connection');
         }
     }
+    
+    async testExistingConnection() {
+        console.log('Testing Existing Connection');
+        const connectionData = this.getConnectionFormData('edit');
+
+        try {
+            this.disableButton(this.editTestConnectionBtn, 'Testing...');
+            const result = await window.postgresMonitorApi.testConnection(connectionData);
+            console.log('Connection Test Result:', result);
+            this.showAlert('success', 'Connection test successful!');
+        } catch (error) {
+            console.error('Connection Test Error:', error);
+            this.showAlert('danger', `Connection test failed: ${error.message}`);
+        } finally {
+            this.enableButton(this.editTestConnectionBtn, '<i class="fas fa-vial"></i> Test Connection');
+        }
+    }
 
     async saveNewConnection() {
         console.log('Saving New Connection');
@@ -118,6 +151,25 @@ export default class ConnectionManager {
             this.showAlert('danger', `Failed to save connection: ${error.message}`);
         } finally {
             this.enableButton(this.saveConnectionBtn, '<i class="fas fa-save"></i> Save Connection');
+        }
+    }
+    
+    async updateConnection() {
+        console.log('Updating Connection');
+        const connectionData = this.getConnectionFormData('edit');
+
+        try {
+            this.disableButton(this.updateConnectionBtn, 'Updating...');
+            const updatedConnection = await window.postgresMonitorApi.updateConnection(this.connectionToEdit, connectionData);
+            console.log('Updated Connection:', updatedConnection);
+            this.showAlert('success', 'Connection updated successfully!');
+            this.editConnectionModal.hide();
+            this.loadConnections();
+        } catch (error) {
+            console.error('Update Connection Error:', error);
+            this.showAlert('danger', `Failed to update connection: ${error.message}`);
+        } finally {
+            this.enableButton(this.updateConnectionBtn, '<i class="fas fa-save"></i> Update Connection');
         }
     }
 
@@ -143,6 +195,9 @@ export default class ConnectionManager {
             }
             
             const connections = await window.postgresMonitorApi.getConnections();
+            // Store connections for later use
+            this.connections = connections;
+            
             console.log('Connections loaded:', connections);
             this.renderConnectionsTable(connections);
         } catch (error) {
@@ -243,15 +298,38 @@ export default class ConnectionManager {
     
     editConnection(connectionId) {
         console.log(`Editing connection with ID: ${connectionId}`);
-        // You would need to fetch the connection details and populate the edit form
-        // Implementation would go here
+        
+        // Find the connection details from our stored connections
+        const connectionToEdit = this.connections.find(conn => conn.id === parseInt(connectionId));
+        
+        if (!connectionToEdit) {
+            console.error(`Connection with ID ${connectionId} not found`);
+            this.showAlert('danger', 'Connection not found');
+            return;
+        }
+        
+        // Store connection ID for update
+        this.connectionToEdit = parseInt(connectionId);
+        
+        // Populate the edit form
+        document.getElementById('edit-connection-id').value = connectionToEdit.id;
+        document.getElementById('edit-connection-name').value = connectionToEdit.name;
+        document.getElementById('edit-connection-host').value = connectionToEdit.host;
+        document.getElementById('edit-connection-port').value = connectionToEdit.port;
+        document.getElementById('edit-connection-database').value = connectionToEdit.database;
+        document.getElementById('edit-connection-username').value = connectionToEdit.username;
+        document.getElementById('edit-connection-password').value = ''; // Password field is blank for security reasons
+        document.getElementById('edit-connection-ssl').checked = connectionToEdit.ssl;
+        
+        // Show the modal
+        this.editConnectionModal.show();
     }
     
     showDeleteConnectionConfirmation(connectionId) {
         console.log(`Showing delete confirmation for connection ID: ${connectionId}`);
         
         // Store the connection ID for deletion
-        this.connectionToDelete = connectionId;
+        this.connectionToDelete = parseInt(connectionId);
         
         // Show the delete confirmation modal
         this.deleteConnectionModal.show();
