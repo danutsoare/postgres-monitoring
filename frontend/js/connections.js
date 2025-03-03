@@ -1,6 +1,4 @@
-// connections.js - Updated version
-import PostgreSQLMonitorAPI from './api.js';
-
+// Fixed ConnectionManager class with proper deletion handling
 export default class ConnectionManager {
     constructor() {
         console.log('ConnectionManager initialized');
@@ -15,13 +13,16 @@ export default class ConnectionManager {
         this.refreshConnectionsBtn = document.getElementById('refresh-connections-btn');
         
         // Modals
-        this.addConnectionModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('add-connection-modal'));
-        this.editConnectionModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('edit-connection-modal'));
-        this.deleteConnectionModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('delete-connection-modal'));
+        this.addConnectionModal = new bootstrap.Modal(document.getElementById('add-connection-modal'));
+        this.editConnectionModal = new bootstrap.Modal(document.getElementById('edit-connection-modal'));
+        this.deleteConnectionModal = new bootstrap.Modal(document.getElementById('delete-connection-modal'));
         
         // Forms
         this.addConnectionForm = document.getElementById('add-connection-form');
         this.editConnectionForm = document.getElementById('edit-connection-form');
+        
+        // Instance variable to store connection ID for deletion
+        this.connectionToDelete = null;
         
         // Bind methods
         this.initEventListeners = this.initEventListeners.bind(this);
@@ -29,12 +30,12 @@ export default class ConnectionManager {
         this.testNewConnection = this.testNewConnection.bind(this);
         this.saveNewConnection = this.saveNewConnection.bind(this);
         this.loadConnections = this.loadConnections.bind(this);
-        
-        // Add debug button (temporary)
-        setTimeout(() => this.addDebugButton(), 1000);
+        this.deleteConnection = this.deleteConnection.bind(this);
+        this.showDeleteConnectionConfirmation = this.showDeleteConnectionConfirmation.bind(this);
         
         // Initialize
         this.initEventListeners();
+        this.loadConnections();
     }
 
     initEventListeners() {
@@ -42,13 +43,10 @@ export default class ConnectionManager {
 
         // Add Connection Button
         if (this.addConnectionBtn) {
-            this.addConnectionBtn.addEventListener('click', (event) => {
+            this.addConnectionBtn.addEventListener('click', () => {
                 console.log('Add Connection Button Clicked');
-                // Modal is opened by data-bs-toggle and data-bs-target attributes
                 this.resetAddConnectionForm();
             });
-        } else {
-            console.error('Add Connection Button not found');
         }
 
         // Test Connection Button
@@ -68,37 +66,20 @@ export default class ConnectionManager {
                 this.loadConnections();
             });
         }
-
-        // Load connections
-        this.loadConnections();
-    }
-    
-    addDebugButton() {
-        const debugBtn = document.createElement('button');
-        debugBtn.textContent = 'Debug API';
-        debugBtn.className = 'btn btn-sm btn-warning ms-2';
-        debugBtn.addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/connections');
-                const data = await response.json();
-                console.log('API response:', data);
-                alert(`API returned ${data.length} connections`);
-                this.renderConnectionsTable(data);
-            } catch (err) {
-                console.error('API request failed:', err);
-                alert(`API request failed: ${err.message}`);
-            }
-        });
         
-        if (this.refreshConnectionsBtn && this.refreshConnectionsBtn.parentNode) {
-            this.refreshConnectionsBtn.parentNode.appendChild(debugBtn);
+        // Delete confirmation button
+        if (this.confirmDeleteConnectionBtn) {
+            this.confirmDeleteConnectionBtn.addEventListener('click', () => {
+                if (this.connectionToDelete) {
+                    this.deleteConnection(this.connectionToDelete);
+                }
+            });
         }
     }
 
     resetAddConnectionForm() {
         console.log('Resetting Add Connection Form');
         
-        // Reset form
         if (this.addConnectionForm) {
             this.addConnectionForm.reset();
         }
@@ -196,6 +177,8 @@ export default class ConnectionManager {
 
     renderConnectionsTable(connections) {
         const tbody = this.connectionsTable.querySelector('tbody');
+        if (!tbody) return;
+        
         tbody.innerHTML = '';
 
         if (connections.length === 0) {
@@ -266,31 +249,23 @@ export default class ConnectionManager {
     
     showDeleteConnectionConfirmation(connectionId) {
         console.log(`Showing delete confirmation for connection ID: ${connectionId}`);
+        
         // Store the connection ID for deletion
         this.connectionToDelete = connectionId;
+        
         // Show the delete confirmation modal
         this.deleteConnectionModal.show();
-        
-        // Make sure the delete confirmation button has a click handler
-        if (this.confirmDeleteConnectionBtn) {
-            // Remove existing handlers
-            this.confirmDeleteConnectionBtn.replaceWith(this.confirmDeleteConnectionBtn.cloneNode(true));
-            this.confirmDeleteConnectionBtn = document.getElementById('confirm-delete-connection-btn');
-            
-            // Add new handler
-            this.confirmDeleteConnectionBtn.addEventListener('click', () => {
-                this.deleteConnection(this.connectionToDelete);
-            });
-        }
     }
     
     async deleteConnection(connectionId) {
         try {
             this.disableButton(this.confirmDeleteConnectionBtn, 'Deleting...');
+            
             await PostgreSQLMonitorAPI.deleteConnection(connectionId);
+            
             this.showAlert('success', 'Connection deleted successfully!');
             this.deleteConnectionModal.hide();
-            this.loadConnections();
+            await this.loadConnections();
         } catch (error) {
             console.error('Delete Connection Error:', error);
             this.showAlert('danger', `Failed to delete connection: ${error.message}`);
@@ -320,11 +295,13 @@ export default class ConnectionManager {
     }
 
     disableButton(button, loadingText) {
+        if (!button) return;
         button.disabled = true;
         button.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i> ${loadingText}`;
     }
 
     enableButton(button, originalText) {
+        if (!button) return;
         button.disabled = false;
         button.innerHTML = originalText;
     }
