@@ -71,97 +71,8 @@ async function initializeMetricsDb() {
   try {
     metricsDb = new Pool(metricsDbConfig);
     
-    await metricsDb.query(`
-      CREATE TABLE IF NOT EXISTS database_connections (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        host TEXT NOT NULL,
-        port INTEGER NOT NULL,
-        database TEXT NOT NULL,
-        username TEXT NOT NULL,
-        password TEXT NOT NULL,
-        ssl BOOLEAN DEFAULT false,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        last_connected_at TIMESTAMP WITH TIME ZONE
-      );
-      
-      CREATE TABLE IF NOT EXISTS pg_version (
-        id SERIAL PRIMARY KEY,
-        connection_id INTEGER REFERENCES database_connections(id),
-        version TEXT NOT NULL,
-        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS session_metrics (
-        id SERIAL PRIMARY KEY,
-        connection_id INTEGER REFERENCES database_connections(id),
-        pid INTEGER NOT NULL,
-        username TEXT NOT NULL,
-        application_name TEXT,
-        database_name TEXT NOT NULL,
-        client_addr TEXT,
-        backend_start TIMESTAMP WITH TIME ZONE,
-        query_start TIMESTAMP WITH TIME ZONE,
-        state TEXT,
-        cpu_usage FLOAT,
-        memory_usage FLOAT,
-        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS wait_events (
-        id SERIAL PRIMARY KEY,
-        connection_id INTEGER REFERENCES database_connections(id),
-        pid INTEGER NOT NULL,
-        wait_event_type TEXT,
-        wait_event TEXT,
-        wait_time FLOAT,
-        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS lock_info (
-        id SERIAL PRIMARY KEY,
-        connection_id INTEGER REFERENCES database_connections(id),
-        pid INTEGER NOT NULL,
-        locktype TEXT,
-        relation TEXT,
-        mode TEXT,
-        granted BOOLEAN,
-        blocking_pids INTEGER[],
-        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS temp_usage (
-        id SERIAL PRIMARY KEY,
-        connection_id INTEGER REFERENCES database_connections(id),
-        pid INTEGER,
-        username TEXT,
-        database_name TEXT,
-        temp_bytes BIGINT,
-        query_type TEXT,
-        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-      
-      CREATE TABLE IF NOT EXISTS query_stats (
-        id SERIAL PRIMARY KEY,
-        connection_id INTEGER REFERENCES database_connections(id),
-        query_id BIGINT,
-        query TEXT,
-        calls INTEGER,
-        total_time FLOAT,
-        min_time FLOAT,
-        max_time FLOAT,
-        mean_time FLOAT,
-        rows BIGINT,
-        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-      
-      -- Create indexes for better query performance
-      CREATE INDEX IF NOT EXISTS session_metrics_collected_at_idx ON session_metrics(collected_at);
-      CREATE INDEX IF NOT EXISTS wait_events_collected_at_idx ON wait_events(collected_at);
-      CREATE INDEX IF NOT EXISTS lock_info_collected_at_idx ON lock_info(collected_at);
-      CREATE INDEX IF NOT EXISTS temp_usage_collected_at_idx ON temp_usage(collected_at);
-      CREATE INDEX IF NOT EXISTS query_stats_collected_at_idx ON query_stats(collected_at);
-    `);
+    // Replace the existing table creation logic with a call to the new schema function
+    await updateDatabaseSchema();
     
     logger.info('Metrics database tables initialized');
     
@@ -660,6 +571,118 @@ async function collectQueryStats(connectionId, connection) {
   }
 }
 
+// Add this function to create proper foreign key constraints with ON DELETE CASCADE
+
+async function updateDatabaseSchema() {
+  try {
+    await metricsDb.query(`
+      -- Drop existing tables if they exist to recreate with proper constraints
+      DROP TABLE IF EXISTS query_stats CASCADE;
+      DROP TABLE IF EXISTS temp_usage CASCADE;
+      DROP TABLE IF EXISTS lock_info CASCADE;
+      DROP TABLE IF EXISTS wait_events CASCADE;
+      DROP TABLE IF EXISTS session_metrics CASCADE;
+      DROP TABLE IF EXISTS pg_version CASCADE;
+      
+      -- Recreate tables with ON DELETE CASCADE
+      CREATE TABLE database_connections (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        host TEXT NOT NULL,
+        port INTEGER NOT NULL,
+        database TEXT NOT NULL,
+        username TEXT NOT NULL,
+        password TEXT NOT NULL,
+        ssl BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        last_connected_at TIMESTAMP WITH TIME ZONE
+      );
+      
+      CREATE TABLE pg_version (
+        id SERIAL PRIMARY KEY,
+        connection_id INTEGER REFERENCES database_connections(id) ON DELETE CASCADE,
+        version TEXT NOT NULL,
+        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      
+      CREATE TABLE session_metrics (
+        id SERIAL PRIMARY KEY,
+        connection_id INTEGER REFERENCES database_connections(id) ON DELETE CASCADE,
+        pid INTEGER NOT NULL,
+        username TEXT NOT NULL,
+        application_name TEXT,
+        database_name TEXT NOT NULL,
+        client_addr TEXT,
+        backend_start TIMESTAMP WITH TIME ZONE,
+        query_start TIMESTAMP WITH TIME ZONE,
+        state TEXT,
+        cpu_usage FLOAT,
+        memory_usage FLOAT,
+        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      
+      CREATE TABLE wait_events (
+        id SERIAL PRIMARY KEY,
+        connection_id INTEGER REFERENCES database_connections(id) ON DELETE CASCADE,
+        pid INTEGER NOT NULL,
+        wait_event_type TEXT,
+        wait_event TEXT,
+        wait_time FLOAT,
+        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      
+      CREATE TABLE lock_info (
+        id SERIAL PRIMARY KEY,
+        connection_id INTEGER REFERENCES database_connections(id) ON DELETE CASCADE,
+        pid INTEGER NOT NULL,
+        locktype TEXT,
+        relation TEXT,
+        mode TEXT,
+        granted BOOLEAN,
+        blocking_pids INTEGER[],
+        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      
+      CREATE TABLE temp_usage (
+        id SERIAL PRIMARY KEY,
+        connection_id INTEGER REFERENCES database_connections(id) ON DELETE CASCADE,
+        pid INTEGER,
+        username TEXT,
+        database_name TEXT,
+        temp_bytes BIGINT,
+        query_type TEXT,
+        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      
+      CREATE TABLE query_stats (
+        id SERIAL PRIMARY KEY,
+        connection_id INTEGER REFERENCES database_connections(id) ON DELETE CASCADE,
+        query_id BIGINT,
+        query TEXT,
+        calls INTEGER,
+        total_time FLOAT,
+        min_time FLOAT,
+        max_time FLOAT,
+        mean_time FLOAT,
+        rows BIGINT,
+        collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      
+      -- Create indexes for better query performance
+      CREATE INDEX IF NOT EXISTS session_metrics_collected_at_idx ON session_metrics(collected_at);
+      CREATE INDEX IF NOT EXISTS wait_events_collected_at_idx ON wait_events(collected_at);
+      CREATE INDEX IF NOT EXISTS lock_info_collected_at_idx ON lock_info(collected_at);
+      CREATE INDEX IF NOT EXISTS temp_usage_collected_at_idx ON temp_usage(collected_at);
+      CREATE INDEX IF NOT EXISTS query_stats_collected_at_idx ON query_stats(collected_at);
+    `);
+    
+    logger.info('Database schema updated with CASCADE delete constraints');
+  } catch (error) {
+    logger.error('Error updating database schema:', error);
+  }
+}
+
+
 // Helper function to check if an extension exists
 async function checkExtensionExists(connectionId, connection, extensionName) {
   try {
@@ -813,13 +836,30 @@ app.delete('/api/connections/:id', async (req, res) => {
       databaseConnections.delete(connectionId);
     }
     
-    // Remove from database
-    await metricsDb.query(
-      'DELETE FROM database_connections WHERE id = $1',
-      [connectionId]
-    );
+    // Delete dependent data first (transaction ensures atomicity)
+    await metricsDb.query('BEGIN');
     
-    res.status(204).send();
+    try {
+      // Delete data from all tables that reference the connection
+      await metricsDb.query('DELETE FROM pg_version WHERE connection_id = $1', [connectionId]);
+      await metricsDb.query('DELETE FROM session_metrics WHERE connection_id = $1', [connectionId]);
+      await metricsDb.query('DELETE FROM wait_events WHERE connection_id = $1', [connectionId]);
+      await metricsDb.query('DELETE FROM lock_info WHERE connection_id = $1', [connectionId]);
+      await metricsDb.query('DELETE FROM temp_usage WHERE connection_id = $1', [connectionId]);
+      await metricsDb.query('DELETE FROM query_stats WHERE connection_id = $1', [connectionId]);
+      
+      // Finally delete the connection itself
+      await metricsDb.query('DELETE FROM database_connections WHERE id = $1', [connectionId]);
+      
+      // Commit transaction
+      await metricsDb.query('COMMIT');
+      
+      res.status(204).send();
+    } catch (error) {
+      // Rollback transaction on error
+      await metricsDb.query('ROLLBACK');
+      throw error;
+    }
   } catch (error) {
     logger.error('Error removing database connection:', error);
     res.status(500).json({ error: 'Error removing database connection' });
