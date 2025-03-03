@@ -863,6 +863,74 @@ app.post('/api/connections', async (req, res) => {
   }
 });
 
+
+// Update an existing database connection
+app.put('/api/connections/:id', async (req, res) => {
+  try {
+    const connectionId = parseInt(req.params.id);
+    const { name, host, port, database, username, password, ssl } = req.body;
+    
+    // Validate required fields
+    if (!name || !host || !database || !username) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Check if connection exists
+    const checkResult = await metricsDb.query(
+      'SELECT id, password FROM database_connections WHERE id = $1',
+      [connectionId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Connection not found' });
+    }
+    
+    // Use existing password if the password field is empty
+    const currentPassword = checkResult.rows[0].password;
+    const updatedPassword = password.trim() === '' ? currentPassword : password;
+    
+    // Update connection in database
+    const result = await metricsDb.query(
+      `UPDATE database_connections 
+       SET name = $1, host = $2, port = $3, database = $4, 
+           username = $5, password = $6, ssl = $7
+       WHERE id = $8
+       RETURNING id, name, host, port, database, username, ssl, created_at, last_connected_at`,
+      [name, host, port || 5432, database, username, updatedPassword, ssl || false, connectionId]
+    );
+    
+    // Close existing pool connection if it exists
+    if (databaseConnections.has(connectionId)) {
+      const connection = databaseConnections.get(connectionId);
+      await connection.pool.end();
+      databaseConnections.delete(connectionId);
+    }
+    
+    // Create a new connection with updated details
+    await createDatabaseConnection({
+      id: connectionId,
+      name,
+      host,
+      port: port || 5432,
+      database,
+      username,
+      password: updatedPassword,
+      ssl: ssl || false
+    });
+    
+    // Remove sensitive information
+    const updatedConnection = {
+      ...result.rows[0],
+      password: undefined
+    };
+    
+    res.json(updatedConnection);
+  } catch (error) {
+    logger.error('Error updating database connection:', error);
+    res.status(500).json({ error: 'Error updating database connection' });
+  }
+});
+
 // Improved connection deletion endpoint with transaction
 app.delete('/api/connections/:id', async (req, res) => {
   try {
