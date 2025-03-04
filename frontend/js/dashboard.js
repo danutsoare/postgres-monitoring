@@ -113,16 +113,50 @@ function setupEventListeners() {
     }
 }
 
-// Load connections from local storage
-function loadConnections() {
+// Add this function
+async function syncConnectionsWithBackend() {
     try {
-        const storedConnections = localStorage.getItem('pg_monitor_connections');
-        if (storedConnections) {
-            dashboardState.connections = JSON.parse(storedConnections);
-        } else {
-            dashboardState.connections = [];
+      console.log('Synchronizing connections with backend...');
+      // Get connections from API
+      const apiConnections = await window.postgresMonitorApi.getConnections();
+      
+      // Update localStorage
+      localStorage.setItem('pg_monitor_connections', JSON.stringify(apiConnections));
+      
+      // Update dashboard state
+      dashboardState.connections = apiConnections;
+      console.log('Connections synchronized:', apiConnections);
+      
+      return apiConnections;
+    } catch (error) {
+      console.error('Error synchronizing connections:', error);
+      return null;
+    }
+  }
+
+
+// Load connections from backend and local storage
+async function loadConnections() {
+    try {
+        console.log('Loading connections...');
+        
+        // Try to sync with backend first
+        try {
+            await syncConnectionsWithBackend();
+            console.log('Backend synchronization complete');
+        } catch (syncError) {
+            console.warn('Could not sync with backend, falling back to localStorage:', syncError);
+            
+            // Fall back to localStorage if API fails
+            const storedConnections = localStorage.getItem('pg_monitor_connections');
+            if (storedConnections) {
+                dashboardState.connections = JSON.parse(storedConnections);
+            } else {
+                dashboardState.connections = [];
+            }
         }
         
+        // Update UI with the connections (whether from API or localStorage)
         updateConnectionsDropdown();
         updateConnectionsUI();
         
@@ -146,7 +180,7 @@ function loadConnections() {
             // Update dropdown
             const databaseSelector = document.querySelector('.database-selector');
             if (databaseSelector) {
-                databaseSelector.value = dashboardState.connections[0].id;
+                databaseSelector.value = String(dashboardState.connections[0].id);
             }
             
             // Initial data load
