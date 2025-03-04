@@ -488,24 +488,56 @@ async function refreshAllData() {
 
         // Test the connection first if not already tested
         if (!dashboardState.connectionTested) {
-            const testResult = await window.PgClient.testConnection({
-                username: connection.username,
-                host: connection.host,
-                database: connection.database,
-                password: connection.password,
-                port: connection.port,
-                ssl: connection.ssl
-            });
-
-            dashboardState.connectionTested = true;
-
-            if (!testResult.success) {
+            try {
+                // Check if PgClient is available
+                if (typeof window.PgClient === 'undefined' || !window.PgClient.testConnection) {
+                    console.warn('PgClient not available, using API directly');
+                    
+                    // Use postgresMonitorApi instead
+                    const testResult = await window.postgresMonitorApi.testConnection({
+                        username: connection.username,
+                        host: connection.host,
+                        database: connection.database,
+                        password: connection.password,
+                        port: connection.port,
+                        ssl: connection.ssl
+                    });
+                    
+                    dashboardState.connectionTested = true;
+                    
+                    if (!testResult.success) {
+                        updateConnectionStatus(connection.id, 'Disconnected');
+                        throw new Error(`Connection test failed: ${testResult.error || 'Unknown error'}`);
+                    } else {
+                        updateConnectionStatus(connection.id, 'Connected');
+                        // Update version badge with detected PostgreSQL version
+                        updateVersionBadge(testResult.version || 'Unknown');
+                    }
+                } else {
+                    // Original code using PgClient
+                    const testResult = await window.PgClient.testConnection({
+                        username: connection.username,
+                        host: connection.host,
+                        database: connection.database,
+                        password: connection.password,
+                        port: connection.port,
+                        ssl: connection.ssl
+                    });
+                    
+                    dashboardState.connectionTested = true;
+                    
+                    if (!testResult.success) {
+                        updateConnectionStatus(connection.id, 'Disconnected');
+                        throw new Error(`Connection test failed: ${testResult.error}`);
+                    } else {
+                        updateConnectionStatus(connection.id, 'Connected');
+                        // Update version badge with detected PostgreSQL version
+                        updateVersionBadge(testResult.version);
+                    }
+                }
+            } catch (error) {
                 updateConnectionStatus(connection.id, 'Disconnected');
-                throw new Error(`Connection test failed: ${testResult.error}`);
-            } else {
-                updateConnectionStatus(connection.id, 'Connected');
-                // Update version badge with detected PostgreSQL version
-                updateVersionBadge(testResult.version);
+                throw new Error(`Connection test failed: ${error.message}`);
             }
         }
 
