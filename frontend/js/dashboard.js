@@ -1410,7 +1410,6 @@ async function saveConnection() {
     
     try {
         // Generate a unique ID
-        //connectionData.id = 'conn_' + Date.now();
         const result = await window.postgresMonitorApi.addConnection(connectionData);
 
         // Use the ID returned by the API
