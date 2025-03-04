@@ -128,7 +128,7 @@ function loadConnections() {
         
         // Check if we have a stored selected connection
         const selectedConnection = localStorage.getItem('pg_monitor_selected_connection');
-        if (selectedConnection && dashboardState.connections.some(conn => conn.id === selectedConnection)) {
+        if (selectedConnection && dashboardState.connections.some(conn => String(conn.id) === String(selectedConnection))) {
             dashboardState.selectedDatabase = selectedConnection;
             
             // Update dropdown
@@ -185,7 +185,7 @@ function updateConnectionsDropdown() {
     
     // Set the selected value
     if (dashboardState.selectedDatabase) {
-        databaseSelector.value = dashboardState.selectedDatabase;
+        databaseSelector.value = String(dashboardState.selectedDatabase);
     }
 }
 
@@ -243,7 +243,7 @@ function setupConnectionButtonListeners() {
     const editButtons = document.querySelectorAll('.edit-conn-btn');
     editButtons.forEach(button => {
         button.addEventListener('click', function() {
-            const connectionId = this.getAttribute('data-id');
+            const connectionId = String(this.getAttribute('data-id'));
             editConnection(connectionId);
         });
     });
@@ -447,7 +447,7 @@ async function refreshAllData() {
         showLoading();
 
         // Get connection details
-        const connection = dashboardState.connections.find(c => c.id === dashboardState.selectedDatabase);
+        const connection = dashboardState.connections.find(c => String(c.id) === String(dashboardState.selectedDatabase));
         if (!connection) {
             throw new Error('Selected connection not found');
         }
@@ -511,7 +511,7 @@ async function refreshAllData() {
 // Update the connection status in the state and UI
 function updateConnectionStatus(connectionId, status) {
     // Update in state
-    const connection = dashboardState.connections.find(c => c.id === connectionId);
+    const connection = dashboardState.connections.find(c => String(c.id) === String(connectionId));
     if (connection) {
         connection.status = status;
     }
@@ -1410,8 +1410,12 @@ async function saveConnection() {
     
     try {
         // Generate a unique ID
-        connectionData.id = 'conn_' + Date.now();
-        
+        //connectionData.id = 'conn_' + Date.now();
+        const result = await window.postgresMonitorApi.addConnection(connectionData);
+
+        // Use the ID returned by the API
+        connectionData.id = result.id;
+
         // Add to connections array
         dashboardState.connections.push(connectionData);
         
@@ -1455,7 +1459,7 @@ async function saveConnection() {
 // Edit connection
 function editConnection(connectionId) {
     // Find the connection
-    const connection = dashboardState.connections.find(c => c.id === connectionId);
+    const connection = dashboardState.connections.find(c => String(c.id) === String(connectionId));
     if (!connection) {
         showError('Connection not found');
         return;
@@ -1682,7 +1686,7 @@ async function updateConnection() {
     
     try {
         // Find the connection index
-        const index = dashboardState.connections.findIndex(c => c.id === connectionId);
+        const index = dashboardState.connections.findIndex(c => String(c.id) === String(connectionId));
         if (index === -1) {
             showError('Connection not found');
             return;
@@ -1713,7 +1717,7 @@ async function updateConnection() {
         }
         
         // Reset connection tested flag if this is the current connection
-        if (dashboardState.selectedDatabase === connectionId) {
+        if (String(dashboardState.selectedDatabase) === String(connectionId)) {
             dashboardState.connectionTested = false;
             refreshAllData();
         }
@@ -1732,7 +1736,7 @@ function deleteConnection(connectionId) {
     
     try {
         // Find the connection index
-        const index = dashboardState.connections.findIndex(c => c.id === connectionId);
+        const index = dashboardState.connections.findIndex(c => String(c.id) === String(connectionId));
         if (index === -1) {
             showError('Connection not found');
             return;
