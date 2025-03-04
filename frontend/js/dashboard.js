@@ -134,7 +134,7 @@ function loadConnections() {
             // Update dropdown
             const databaseSelector = document.querySelector('.database-selector');
             if (databaseSelector) {
-                databaseSelector.value = selectedConnection;
+                databaseSelector.value = String(selectedConnection);
             }
             
             // Initial data load
@@ -511,7 +511,7 @@ async function refreshAllData() {
 // Update the connection status in the state and UI
 function updateConnectionStatus(connectionId, status) {
     // Update in state
-    const connection = dashboardState.connections.find(c => String(c.id) === String(connectionId));
+    const connection = dashboardState.connections.find(c => String(c.id) === String(dashboardState.selectedDatabase));
     if (connection) {
         connection.status = status;
     }
