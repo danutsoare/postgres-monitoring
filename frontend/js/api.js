@@ -243,6 +243,22 @@ export default class PostgreSQLMonitorAPI {
         }
     }
     
+    // Get comprehensive database statistics
+    static async getDatabaseStats(connectionId) {
+        try {
+            const response = await fetch(`${this.BASE_URL}/stats/${connectionId}`);
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch database statistics');
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching database statistics:', error);
+            throw error;
+        }
+    }
+
     // Get available PostgreSQL extensions
     static async getExtensions() {
         try {

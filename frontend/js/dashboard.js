@@ -463,6 +463,8 @@ function startAutoRefresh() {
 }
 
 // Refresh all data
+// Fix for the refreshAllData function in dashboard.js
+
 async function refreshAllData() {
     // Skip refresh if already loading
     if (dashboardState.isLoading) return;
@@ -542,10 +544,19 @@ async function refreshAllData() {
         }
 
         // Get database statistics
-        const result = await window.PgClient.getDbStats(dashboardState.selectedDatabase);
+        let result;
+        if (typeof window.PgClient === 'undefined' || !window.PgClient.getDbStats) {
+            console.warn('PgClient.getDbStats not available, using API directly');
+            
+            // Use postgresMonitorApi instead
+            result = await window.postgresMonitorApi.getDatabaseStats(dashboardState.selectedDatabase);
+        } else {
+            // Use PgClient if available
+            result = await window.PgClient.getDbStats(dashboardState.selectedDatabase);
+        }
         
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to fetch database statistics');
+        if (!result || !result.success) {
+            throw new Error(result?.error || 'Failed to fetch database statistics');
         }
 
         // Update timestamp of successful refresh
