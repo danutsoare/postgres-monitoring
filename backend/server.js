@@ -1542,6 +1542,277 @@ app.post('/api/refresh', async (req, res) => {
   }
 });
 
+// Get comprehensive database statistics for a specific connection
+app.get('/api/connections/:id/stats', async (req, res) => {
+  try {
+      const connectionId = parseInt(req.params.id);
+      
+      logger.info(`Fetching database stats for connection ID: ${connectionId}`);
+      
+      // Check if connection exists and is active
+      if (!databaseConnections.has(connectionId)) {
+          return res.status(404).json({ 
+              success: false,
+              error: 'Connection not found or not active' 
+          });
+      }
+      
+      const connection = databaseConnections.get(connectionId);
+      
+      // Collect all statistics for the connection
+      const stats = {};
+      
+      // Get PostgreSQL version
+      try {
+          const result = await metricsDb.query(`
+              SELECT version 
+              FROM pg_version 
+              WHERE connection_id = $1
+              ORDER BY collected_at DESC 
+              LIMIT 1
+          `, [connectionId]);
+          
+          if (result.rows.length > 0) {
+              stats.version = result.rows[0].version;
+          } else {
+              const versionData = await collectPgVersion(connectionId, connection);
+              stats.version = versionData;
+          }
+      } catch (error) {
+          logger.error(`Error getting version for connection ${connectionId}:`, error);
+          stats.version = 'Unknown';
+      }
+      
+      // Get active sessions
+      try {
+          const result = await metricsDb.query(`
+              SELECT * 
+              FROM session_metrics 
+              WHERE connection_id = $1 AND collected_at > NOW() - INTERVAL '5 minutes'
+              ORDER BY cpu_usage DESC
+          `, [connectionId]);
+          
+          stats.sessions = result.rows;
+      } catch (error) {
+          logger.error(`Error getting sessions for connection ${connectionId}:`, error);
+          stats.sessions = [];
+      }
+      
+      // Get CPU usage data
+      try {
+          const result = await metricsDb.query(`
+              SELECT pid, username, application_name, cpu_usage
+              FROM session_metrics 
+              WHERE connection_id = $1 
+              AND collected_at > NOW() - INTERVAL '5 minutes'
+              AND cpu_usage > 0
+              ORDER BY cpu_usage DESC
+              LIMIT 10
+          `, [connectionId]);
+          
+          stats.cpuUsage = result.rows;
+      } catch (error) {
+          logger.error(`Error getting CPU usage for connection ${connectionId}:`, error);
+          stats.cpuUsage = [];
+      }
+      
+      // Get wait events
+      try {
+          const result = await metricsDb.query(`
+              SELECT wait_event_type, wait_event, COUNT(*) as count, 
+                     AVG(wait_time) as avg_wait_time, SUM(wait_time) as total_wait_time
+              FROM wait_events
+              WHERE connection_id = $1 AND collected_at > NOW() - INTERVAL '5 minutes'
+              GROUP BY wait_event_type, wait_event
+              ORDER BY total_wait_time DESC
+          `, [connectionId]);
+          
+          stats.waitEvents = result.rows;
+      } catch (error) {
+          logger.error(`Error getting wait events for connection ${connectionId}:`, error);
+          stats.waitEvents = [];
+      }
+      
+      // Get blocking sessions
+      try {
+          const result = await metricsDb.query(`
+              WITH RECURSIVE blockers AS (
+                  SELECT DISTINCT 
+                    l.pid AS blocking_pid,
+                    NULL::INTEGER AS blocked_pid,
+                    0 AS level
+                  FROM lock_info l
+                  WHERE l.connection_id = $1 
+                  AND l.blocking_pids IS NOT NULL
+                  AND l.collected_at > NOW() - INTERVAL '5 minutes'
+                  
+                  UNION ALL
+                  
+                  SELECT 
+                    b.blocking_pid,
+                    unnest.blocked_pid,
+                    b.level + 1
+                  FROM blockers b
+                  JOIN LATERAL unnest(
+                    (SELECT l.blocking_pids 
+                     FROM lock_info l 
+                     WHERE l.connection_id = $1
+                     AND l.pid = b.blocking_pid 
+                     ORDER BY l.collected_at DESC 
+                     LIMIT 1)
+                  ) AS unnest(blocked_pid) ON true
+              )
+              SELECT 
+                  b.blocking_pid,
+                  b.blocked_pid,
+                  b.level,
+                  s_blocker.username AS blocker_username,
+                  s_blocker.application_name AS blocker_application,
+                  s_blocked.username AS blocked_username,
+                  s_blocked.application_name AS blocked_application,
+                  l.locktype,
+                  l.relation,
+                  l.mode
+              FROM blockers b
+              LEFT JOIN (
+                  SELECT DISTINCT ON (pid) * 
+                  FROM session_metrics 
+                  WHERE connection_id = $1
+                  ORDER BY pid, collected_at DESC
+              ) s_blocker ON b.blocking_pid = s_blocker.pid
+              LEFT JOIN (
+                  SELECT DISTINCT ON (pid) * 
+                  FROM session_metrics 
+                  WHERE connection_id = $1
+                  ORDER BY pid, collected_at DESC
+              ) s_blocked ON b.blocked_pid = s_blocked.pid
+              LEFT JOIN (
+                  SELECT DISTINCT ON (pid) * 
+                  FROM lock_info 
+                  WHERE connection_id = $1
+                  ORDER BY pid, collected_at DESC
+              ) l ON b.blocking_pid = l.pid
+              ORDER BY b.level, b.blocking_pid
+          `, [connectionId]);
+          
+          stats.blockingSessions = result.rows;
+      } catch (error) {
+          logger.error(`Error getting blocking sessions for connection ${connectionId}:`, error);
+          stats.blockingSessions = [];
+      }
+      
+      // Get temp space usage
+      try {
+          const result = await metricsDb.query(`
+              SELECT * 
+              FROM temp_usage
+              WHERE connection_id = $1 AND collected_at > NOW() - INTERVAL '5 minutes'
+              ORDER BY temp_bytes DESC
+          `, [connectionId]);
+          
+          stats.tempUsage = result.rows;
+      } catch (error) {
+          logger.error(`Error getting temp usage for connection ${connectionId}:`, error);
+          stats.tempUsage = [];
+      }
+      
+      // Get database size information (if available)
+      try {
+          const dbConn = connection.pool;
+          const sizeResult = await dbConn.query(`
+              SELECT pg_size_pretty(pg_database_size(current_database())) as size
+          `);
+          
+          if (sizeResult.rows.length > 0) {
+              stats.databaseSize = sizeResult.rows[0].size;
+          } else {
+              stats.databaseSize = 'Unknown';
+          }
+      } catch (error) {
+          logger.error(`Error getting database size for connection ${connectionId}:`, error);
+          stats.databaseSize = 'Unknown';
+      }
+      
+      // Get table sizes
+      try {
+          const dbConn = connection.pool;
+          const tableSizesResult = await dbConn.query(`
+              SELECT schemaname, relname as table_name, 
+                     pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) as total_size,
+                     pg_size_pretty(pg_relation_size(schemaname||'.'||relname)) as table_size,
+                     pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname) - 
+                                    pg_relation_size(schemaname||'.'||relname)) as index_size
+              FROM pg_stat_user_tables
+              ORDER BY pg_total_relation_size(schemaname||'.'||relname) DESC
+              LIMIT 20
+          `);
+          
+          stats.tableSizes = tableSizesResult.rows;
+      } catch (error) {
+          logger.error(`Error getting table sizes for connection ${connectionId}:`, error);
+          stats.tableSizes = [];
+      }
+      
+      // Get query stats if available
+      try {
+          const result = await metricsDb.query(`
+              SELECT DISTINCT ON (query_id)
+                  query_id, query, calls, total_time, mean_time, rows
+              FROM query_stats
+              WHERE connection_id = $1
+              ORDER BY query_id, collected_at DESC
+              LIMIT 20
+          `, [connectionId]);
+          
+          stats.queryStats = result.rows;
+      } catch (error) {
+          logger.error(`Error getting query stats for connection ${connectionId}:`, error);
+          stats.queryStats = [];
+      }
+      
+      // Get extensions
+      try {
+          const dbConn = connection.pool;
+          const extensionsResult = await dbConn.query(`
+              SELECT 
+                  e.extname AS name, 
+                  e.extversion AS version, 
+                  n.nspname AS schema
+              FROM 
+                  pg_extension e
+                  JOIN pg_namespace n ON n.oid = e.extnamespace
+              ORDER BY 
+                  e.extname
+          `);
+          
+          stats.extensions = extensionsResult.rows;
+      } catch (error) {
+          logger.error(`Error getting extensions for connection ${connectionId}:`, error);
+          stats.extensions = [];
+      }
+      
+      // Return all collected stats
+      res.json({
+          success: true,
+          stats,
+          timestamp: new Date().toISOString()
+      });
+  } catch (error) {
+      logger.error('Error getting database statistics:', error);
+      res.status(500).json({ 
+          success: false,
+          error: 'Error getting database statistics',
+          details: error.message
+      });
+  }
+});
+
+// Alternative endpoint format (simpler version that redirects to the main endpoint)
+app.get('/api/stats/:id', async (req, res) => {
+  // Redirect to the main endpoint
+  res.redirect(`/api/connections/${req.params.id}/stats`);
+});
+
 // Historical data endpoints for a specific connection
 app.get('/api/connections/:id/history/sessions', async (req, res) => {
   const connectionId = parseInt(req.params.id);
