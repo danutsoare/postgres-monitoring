@@ -462,13 +462,6 @@ function startAutoRefresh() {
     }
 }
 
-/**
- * Updated refreshAllData function in dashboard.js
- * 
- * This is the fixed version of the function with improved error handling
- * and defensive programming to handle missing API methods.
- */
-
 // Fix for the refreshAllData function in dashboard.js
 async function refreshAllData() {
     // Skip refresh if already loading
@@ -622,6 +615,20 @@ async function refreshAllData() {
                 console.error('Error using PgClient.getDbStats:', pgError);
                 throw new Error(`Failed to fetch database statistics via PgClient: ${pgError.message}`);
             }
+        }
+
+        // Add this code after successful API response but before refreshSectionData
+        // Extract version from response
+        if (result && result.stats && result.stats.version) {
+            const fullVersionString = result.stats.version;
+            // Extract just the version number (e.g., "16.3")
+            const versionMatch = fullVersionString.match(/PostgreSQL (\d+\.\d+)/);
+            const versionText = versionMatch ? versionMatch[1] : fullVersionString.split(' ')[0];
+            
+            // Update the version badge
+            updateVersionBadge(versionText);
+        } else {
+            updateVersionBadge('Unknown');
         }
 
         // Update timestamp of successful refresh
@@ -1094,9 +1101,12 @@ function updateExtensionsSection(data) {
 
 // Update version badge with detected PostgreSQL version
 function updateVersionBadge(version) {
+    console.log("Updating version badge with:", version);
     const versionBadge = document.querySelector('.version-badge');
     if (versionBadge) {
         versionBadge.textContent = `PostgreSQL ${version}`;
+    } else {
+        console.error("Version badge element not found");
     }
 }
 
