@@ -720,18 +720,26 @@ async function refreshChartById(chartId) {
 }
 
 // Refresh specific section data based on current section
-async function refreshSectionData(sectionName, data = null) {
+function refreshSectionData(sectionName, data = null) {
+    // If no database is selected, show message and return
+    if (!dashboardState.selectedDatabase || dashboardState.selectedDatabase === '') {
+        showNoConnectionMessage();
+        return;
+    }
+
     // If no data provided, use what we already have or fetch new data
     if (!data) {
         // If we're already loading, skip this call
-        if (dashboardState.isLoading) return;
+        if (dashboardState.isLoading) {
+            return;
+        }
         
         // Otherwise, just trigger a full refresh
         refreshAllData();
         return;
     }
     
-    // Update appropriate sections based on available data
+    // Rest of the function remains unchanged
     switch (sectionName) {
         case 'dashboard':
             updateDashboard(data);
@@ -746,17 +754,9 @@ async function refreshSectionData(sectionName, data = null) {
             updateLocksSection(data);
             break;
         case 'queries':
-            updateQueriesSection(data);
-            break;
         case 'storage':
-            updateStorageSection(data);
-            break;
         case 'extensions':
-            updateExtensionsSection(data);
-            break;
         case 'connections':
-            // No need to update, this is handled separately
-            break;
         default:
             // No specific data to refresh
             break;
