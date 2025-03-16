@@ -394,12 +394,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.0/apexcharts.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pg-browser/1.0.0/pg-browser.min.js"></script>
+<script src="js/pg-browser-shim.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/pg-client.js"></script>
 <script src="js/dashboard.js"></script>
 
-<!-- Load modules -->
 <script type="module">
     import PostgreSQLMonitorAPI from './js/api.js';
     import ConnectionManager from './js/connections.js';
@@ -416,6 +415,17 @@
     // Global error handler
     window.addEventListener('error', (event) => {
         console.error('Uncaught error:', event.error);
-        alert(`An error occurred: ${event.error.message}`);
+        // Use a more informative error message than just an alert
+        const errorMessage = `An error occurred: ${event.error.message || 'Unknown error'}`;
+        console.error(errorMessage);
+        
+        // Show error in UI if possible
+        if (typeof showError === 'function') {
+            showError(errorMessage);
+        } else {
+            alert(errorMessage);
+        }
     });
 </script>
+</body>
+</html>
