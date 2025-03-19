@@ -487,10 +487,16 @@ export default class ConnectionManager {
         // Ensure modal exists and is initialized
         this.createEditModal();
         
+        // Initialize modal if not already done
         if (!this.editConnectionModal) {
-            console.error('Edit modal not initialized');
-            this.showAlert('danger', 'Could not open edit form');
-            return;
+            const modalElement = document.getElementById('edit-connection-modal');
+            if (modalElement) {
+                this.editConnectionModal = new bootstrap.Modal(modalElement);
+            } else {
+                console.error('Edit modal element not found');
+                this.showAlert('danger', 'Could not open edit form');
+                return;
+            }
         }
 
         // Show the modal
@@ -498,9 +504,23 @@ export default class ConnectionManager {
 
         // Wait for modal to be shown before populating fields
         const modalElement = document.getElementById('edit-connection-modal');
-        modalElement.addEventListener('shown.bs.modal', () => {
-            this.populateEditForm(connection);
-        }, { once: true }); // Remove listener after first execution
+        if (!modalElement) {
+            console.error('Modal element not found after showing');
+            this.showAlert('danger', 'Could not load edit form');
+            return;
+        }
+
+        // Remove any existing event listeners
+        const newModalElement = modalElement.cloneNode(true);
+        modalElement.parentNode.replaceChild(newModalElement, modalElement);
+
+        // Add event listener for modal shown event
+        newModalElement.addEventListener('shown.bs.modal', () => {
+            // Small delay to ensure DOM is ready
+            setTimeout(() => {
+                this.populateEditForm(connection);
+            }, 100);
+        }, { once: true });
     }
 
     populateEditForm(connection) {
@@ -527,7 +547,7 @@ export default class ConnectionManager {
             }
 
             // Populate form fields
-            fields.id.value = connection.id;
+            fields.id.value = connection.id || '';
             fields.name.value = connection.name || '';
             fields.host.value = connection.host || '';
             fields.port.value = connection.port || 5432;
@@ -536,12 +556,29 @@ export default class ConnectionManager {
             fields.password.value = ''; // Don't populate password
             fields.ssl.checked = connection.ssl || false;
 
+            // Re-initialize event listeners for the edit form
+            this.initEditFormEventListeners();
+
         } catch (error) {
             console.error('Error populating edit form:', error);
             this.showAlert('danger', `Error loading edit form: ${error.message}`);
             if (this.editConnectionModal) {
                 this.editConnectionModal.hide();
             }
+        }
+    }
+
+    initEditFormEventListeners() {
+        // Test Connection Button
+        const testBtn = document.getElementById('edit-test-connection-btn');
+        if (testBtn) {
+            testBtn.addEventListener('click', () => this.testExistingConnection());
+        }
+
+        // Update Connection Button
+        const updateBtn = document.getElementById('update-connection-btn');
+        if (updateBtn) {
+            updateBtn.addEventListener('click', () => this.updateConnection());
         }
     }
 
