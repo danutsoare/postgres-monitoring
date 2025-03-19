@@ -362,6 +362,7 @@ export default class ConnectionManager {
         }
     }
 
+    // In connections.js, add proper validation
     getConnectionFormData(type) {
         const nameField = type === 'add' ? 'connection-name' : 'edit-connection-name';
         const hostField = type === 'add' ? 'connection-host' : 'edit-connection-host';
@@ -371,11 +372,21 @@ export default class ConnectionManager {
         const passwordField = type === 'add' ? 'connection-password' : 'edit-connection-password';
         const sslField = type === 'add' ? 'connection-ssl' : 'edit-connection-ssl';
 
+        const port = parseInt(document.getElementById(portField).value);
+        if (port < 1 || port > 65535) {
+            throw new Error('Port number must be between 1 and 65535');
+        }
+
+        const database = document.getElementById(databaseField).value.trim();
+        if (!/^[a-zA-Z0-9_]+$/.test(database)) {
+            throw new Error('Database name can only contain letters, numbers, and underscores');
+        }
+
         return {
             name: document.getElementById(nameField).value.trim(),
             host: document.getElementById(hostField).value.trim(),
-            port: parseInt(document.getElementById(portField).value),
-            database: document.getElementById(databaseField).value.trim(),
+            port,
+            database,
             username: document.getElementById(usernameField).value.trim(),
             password: document.getElementById(passwordField).value.trim(),
             ssl: document.getElementById(sslField).checked

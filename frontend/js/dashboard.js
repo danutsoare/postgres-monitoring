@@ -487,6 +487,7 @@ async function refreshAllData() {
         }
 
         // Test the connection first if not already tested
+        // Fix the block structure in dashboard.js
         if (!dashboardState.connectionTested) {
             try {
                 // Check if PgClient is available
@@ -515,7 +516,6 @@ async function refreshAllData() {
                         throw new Error(`Connection test failed: ${testResult.error || 'Unknown error'}`);
                     } else {
                         updateConnectionStatus(connection.id, 'Connected');
-                        // Update version badge with detected PostgreSQL version
                         updateVersionBadge(testResult.version || 'Unknown');
                     }
                 } else {
@@ -536,7 +536,6 @@ async function refreshAllData() {
                         throw new Error(`Connection test failed: ${testResult.error}`);
                     } else {
                         updateConnectionStatus(connection.id, 'Connected');
-                        // Update version badge with detected PostgreSQL version
                         updateVersionBadge(testResult.version);
                     }
                 }

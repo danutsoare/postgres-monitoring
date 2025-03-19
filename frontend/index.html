@@ -11,6 +11,7 @@
 <body>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <!-- Navbar content remains unchanged -->
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="#">
                 <i class="fas fa-database me-2"></i>
@@ -65,6 +66,7 @@
 
     <!-- Sidebar -->
     <div class="sidebar">
+        <!-- Sidebar content remains unchanged -->
         <ul class="nav flex-column">
             <li class="nav-item">
                 <a class="nav-link active" href="#" data-section="dashboard">
@@ -137,12 +139,11 @@
 
     <!-- Main Content -->
     <div class="main-content">
-        <!-- Dashboard Section (previous content remains unchanged) -->
+        <!-- Dashboard Section with added chart containers -->
         <div id="dashboard-section" class="content-section active">
-            <!-- Dashboard content remains unchanged -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>Dashboard</h2>
-                <div class="version-badge">PostgreSQL 15.3</div>
+                <div class="version-badge">PostgreSQL Database</div>
             </div>
             
             <div class="alert alert-secondary d-flex align-items-center" role="alert">
@@ -156,10 +157,252 @@
                 </button>
             </div>
             
-            <!-- Rest of dashboard section content -->
+            <!-- CPU Usage and Wait Events Charts -->
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>CPU Usage by Session</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="cpu-usage-chart"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Top Wait Events</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="wait-events-chart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Wait Events Timeline and By Session -->
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Wait Events Over Time</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="wait-events-timeline"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Wait Events by Session</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="wait-events-by-session"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lock Types and Active Sessions -->
+            <div class="row">
+                <div class="col-md-5 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Lock Types Distribution</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="lock-types-chart"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-7 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Active Sessions</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover sessions-table">
+                                    <thead>
+                                        <tr>
+                                            <th>PID</th>
+                                            <th>User</th>
+                                            <th>Application</th>
+                                            <th>CPU</th>
+                                            <th>State</th>
+                                            <th>Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Session data dynamically populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Blocking Sessions and Temp Space -->
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Blocking Sessions</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover blocking-table">
+                                    <thead>
+                                        <tr>
+                                            <th>PID</th>
+                                            <th>User</th>
+                                            <th>Blocked Sessions</th>
+                                            <th>Query</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Blocking data dynamically populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Temporary Space Usage</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="temp-usage-label mb-1">Used: 480 MB of 1GB</div>
+                                <div class="progress progress-thin">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: 48%" aria-valuenow="48" aria-valuemin="0" aria-valuemax="100">48%</div>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover temp-table">
+                                    <thead>
+                                        <tr>
+                                            <th>PID</th>
+                                            <th>User</th>
+                                            <th>Size</th>
+                                            <th>Query</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Temp usage data dynamically populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Temp Space Charts -->
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Temp Space Over Time</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="temp-space-timeline"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Temp Space by Hour</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="temp-space-by-hour"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Temp Space by Query Type</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="temp-space-by-query-type"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Buffer Cache -->
+            <div class="row">
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>Buffer Cache Usage by Table</div>
+                            <button class="btn btn-sm btn-outline-secondary refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="buffer-cache-chart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
-        <!-- Other sections remain unchanged -->
+        <!-- Other section content remains unchanged -->
+        <!-- Sessions Section -->
+        <div id="sessions-section" class="content-section">
+            <!-- Sessions section content -->
+        </div>
+        
+        <!-- Wait Events Section -->
+        <div id="waits-section" class="content-section">
+            <!-- Wait events section content -->
+        </div>
+
+        <!-- Locks Section -->
+        <div id="locks-section" class="content-section">
+            <!-- Locks section content -->
+        </div>
 
         <!-- Connections Section -->
         <div id="connections-section" class="content-section">
@@ -201,7 +444,7 @@
             </div>
         </div>
         
-        <!-- Other sections remain unchanged -->
+        <!-- Other section content remains unchanged -->
     </div>
 
     <!-- Settings Modal -->
@@ -238,7 +481,7 @@
                             <!-- Alerts settings content -->
                         </div>
                         <div class="tab-pane fade" id="connections" role="tabpanel" aria-labelledby="connections-tab">
-                            <!-- Connection settings remain unchanged -->
+                            <!-- Connection settings content -->
                         </div>
                     </div>
                 </div>
@@ -252,179 +495,50 @@
     
     <!-- Add Connection Modal -->
     <div class="modal fade" id="add-connection-modal" tabindex="-1" aria-labelledby="addConnectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addConnectionModalLabel">Add Database Connection</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="add-connection-form">
-                        <div class="mb-3">
-                            <label for="connection-name" class="form-label">Connection Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="connection-name" placeholder="e.g., Production Database" required>
-                            <div class="form-text">A friendly name to identify this connection</div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8 mb-3">
-                                <label for="connection-host" class="form-label">Host <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="connection-host" placeholder="e.g., localhost or postgres.example.com" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="connection-port" class="form-label">Port</label>
-                                <input type="number" class="form-control" id="connection-port" value="5432" min="1" max="65535">
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="connection-database" class="form-label">Database Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="connection-database" placeholder="e.g., postgres" required>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="connection-username" class="form-label">Username <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="connection-username" placeholder="e.g., postgres" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="connection-password" class="form-label">Password <span class="text-danger">*</span></label>
-                                <input type="password" class="form-control" id="connection-password" required>
-                            </div>
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="connection-ssl">
-                            <label class="form-check-label" for="connection-ssl">Use SSL connection</label>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-info" id="test-connection-btn">
-                        <i class="fas fa-vial"></i> Test Connection
-                    </button>
-                    <button type="button" class="btn btn-primary" id="save-connection-btn">
-                        <i class="fas fa-save"></i> Save Connection
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
     
     <!-- Edit Connection Modal -->
     <div class="modal fade" id="edit-connection-modal" tabindex="-1" aria-labelledby="editConnectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editConnectionModalLabel">Edit Database Connection</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="edit-connection-form">
-                        <input type="hidden" id="edit-connection-id">
-                        <div class="mb-3">
-                            <label for="edit-connection-name" class="form-label">Connection Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="edit-connection-name" required>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-8 mb-3">
-                                <label for="edit-connection-host" class="form-label">Host <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="edit-connection-host" required>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="edit-connection-port" class="form-label">Port</label>
-                                <input type="number" class="form-control" id="edit-connection-port" min="1" max="65535">
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="edit-connection-database" class="form-label">Database Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="edit-connection-database" required>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="edit-connection-username" class="form-label">Username <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="edit-connection-username" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="edit-connection-password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="edit-connection-password" placeholder="Leave blank to keep current password">
-                                <div class="form-text">Leave blank to keep current password</div>
-                            </div>
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="edit-connection-ssl">
-                            <label class="form-check-label" for="edit-connection-ssl">Use SSL connection</label>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-info" id="edit-test-connection-btn">
-                        <i class="fas fa-vial"></i> Test Connection
-                    </button>
-                    <button type="button" class="btn btn-primary" id="update-connection-btn">
-                        <i class="fas fa-save"></i> Update Connection
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
     
     <!-- Delete Connection Modal -->
     <div class="modal fade" id="delete-connection-modal" tabindex="-1" aria-labelledby="deleteConnectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="deleteConnectionModalLabel">Confirm Deletion</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p><i class="fas fa-exclamation-triangle text-warning me-2"></i> Are you sure you want to delete this connection?</p>
-                    <p>This will permanently remove the connection and all associated historical monitoring data. This action cannot be undone.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirm-delete-connection-btn">
-                        <i class="fas fa-trash"></i> Delete Connection
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
 
-<!-- JavaScript Dependencies -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.0/apexcharts.min.js"></script>
-<script src="js/pg-browser-shim.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/pg-client.js"></script>
-<script src="js/dashboard.js"></script>
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.35.0/apexcharts.min.js"></script>
+    <script src="js/pg-browser-shim.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/pg-client.js"></script>
+    <script src="js/dashboard.js"></script>
 
-<script type="module">
-    import PostgreSQLMonitorAPI from './js/api.js';
-    import ConnectionManager from './js/connections.js';
-    
-    // Make API available globally for other scripts
-    window.postgresMonitorApi = PostgreSQLMonitorAPI;
-    
-    // Initialize connection manager when DOM is loaded
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('Initializing ConnectionManager');
-        window.connectionManager = new ConnectionManager();
-    });
-    
-    // Global error handler
-    window.addEventListener('error', (event) => {
-        console.error('Uncaught error:', event.error);
-        // Use a more informative error message than just an alert
-        const errorMessage = `An error occurred: ${event.error.message || 'Unknown error'}`;
-        console.error(errorMessage);
+    <script type="module">
+        import PostgreSQLMonitorAPI from './js/api.js';
+        import ConnectionManager from './js/connections.js';
         
-        // Show error in UI if possible
-        if (typeof showError === 'function') {
-            showError(errorMessage);
-        } else {
-            alert(errorMessage);
-        }
-    });
-</script>
+        // Make API available globally for other scripts
+        window.postgresMonitorApi = PostgreSQLMonitorAPI;
+        
+        // Initialize connection manager when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Initializing ConnectionManager');
+            window.connectionManager = new ConnectionManager();
+        });
+        
+        // Global error handler
+        window.addEventListener('error', (event) => {
+            console.error('Uncaught error:', event.error);
+            const errorMessage = `An error occurred: ${event.error.message || 'Unknown error'}`;
+            console.error(errorMessage);
+            
+            if (typeof showError === 'function') {
+                showError(errorMessage);
+            } else {
+                alert(errorMessage);
+            }
+        });
+    </script>
 </body>
 </html>

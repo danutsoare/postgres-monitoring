@@ -964,50 +964,58 @@ app.delete('/api/connections/:id', async (req, res) => {
 });
 
 // Test a database connection
+// In server.js, add proper validation
 app.post('/api/connections/test', async (req, res) => {
   try {
-    const { id, host, port, database, username, password, ssl, useExistingPassword } = req.body;
-    
-    // Validate required fields
-    if (!host || !database || !username) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-    
-    let testPassword = password;
-    
-    // If using existing password and we have an ID, get the password from the database
-    if (useExistingPassword && id) {
-      const result = await metricsDb.query('SELECT password FROM database_connections WHERE id = $1', [id]);
-      if (result.rows.length > 0) {
-        testPassword = result.rows[0].password;
+      const { id, host, port, database, username, password, ssl, useExistingPassword } = req.body;
+      
+      // Validate required fields
+      if (!host || !database || !username) {
+          return res.status(400).json({ error: 'Missing required fields' });
       }
-    }
-    
-    // Create test connection
-    const pool = new Pool({
-      user: username,
-      host,
-      database,
-      password: testPassword,
-      port: port || 5432,
-      ssl: ssl ? { rejectUnauthorized: false } : false,
-      connectionTimeoutMillis: 5000
-    });
-    
-    // Test connection
-    await pool.query('SELECT 1');
-    
-    // Close pool
-    await pool.end();
-    
-    res.json({ success: true, message: 'Connection successful' });
+      
+      // Validate port number
+      if (port && (port < 1 || port > 65535)) {
+          return res.status(400).json({ error: 'Invalid port number' });
+      }
+      
+      let testPassword = password;
+      
+      // If using existing password, validate connection exists
+      if (useExistingPassword && id) {
+          const result = await metricsDb.query('SELECT password FROM database_connections WHERE id = $1', [id]);
+          if (result.rows.length === 0) {
+              return res.status(404).json({ error: 'Connection not found' });
+          }
+          testPassword = result.rows[0].password;
+      }
+      
+      // Create test connection with timeout
+      const pool = new Pool({
+          user: username,
+          host,
+          database,
+          password: testPassword,
+          port: port || 5432,
+          ssl: ssl ? { rejectUnauthorized: false } : false,
+          connectionTimeoutMillis: 5000
+      });
+      
+      try {
+          // Test connection
+          await pool.query('SELECT 1');
+          res.json({ success: true, message: 'Connection successful' });
+      } finally {
+          // Always close the pool
+          await pool.end();
+      }
   } catch (error) {
-    logger.error('Connection test failed:', error);
-    res.status(400).json({ 
-      success: false, 
-      message: 'Connection failed', 
-      error: error.message 
-    });
+      logger.error('Connection test failed:', error);
+      res.status(400).json({ 
+          success: false, 
+          message: 'Connection failed', 
+          error: error.message 
+      });
   }
 });
 

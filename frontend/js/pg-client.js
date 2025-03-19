@@ -1,13 +1,12 @@
 // PostgreSQL Monitor - Direct Database Connection Module
 // Uses pg-browser library for direct PostgreSQL connections from the browser
 
-// Import the pg-browser library
-// Note: Make sure to include this script in your HTML:
-// <script src="https://cdnjs.cloudflare.com/ajax/libs/pg-browser/1.0.0/pg-browser.min.js"></script>
+
 
 const PgClient = {
     // Connection pool to avoid creating new connections for every request
     connections: new Map(),
+    connectionLocks: new Map(),
     
     // Test connection to PostgreSQL database
     testConnection: async function(config) {
@@ -156,53 +155,67 @@ const PgClient = {
     
     // Get or create a client for a connection
     getClient: async function(connectionId) {
-        // Check if we already have a client for this connection
-        if (this.connections.has(connectionId)) {
-            const client = this.connections.get(connectionId);
-            
-            // Test if connection is still valid
+        // Use a lock to prevent multiple simultaneous connection attempts
+        if (this.connectionLocks.has(connectionId)) {
+            return this.connectionLocks.get(connectionId);
+        }
+
+        const lockPromise = (async () => {
             try {
-                await client.query('SELECT 1');
-                return client;
-            } catch (error) {
-                console.warn(`Stored connection ${connectionId} is invalid, will create a new one:`, error.message);
-                // Close the invalid connection
-                try {
-                    await client.end();
-                } catch (e) {
-                    console.error('Error closing invalid connection:', e);
+                // Check if we already have a client for this connection
+                if (this.connections.has(connectionId)) {
+                    const client = this.connections.get(connectionId);
+                    
+                    // Test if connection is still valid
+                    try {
+                        await client.query('SELECT 1');
+                        return client;
+                    } catch (error) {
+                        console.warn(`Stored connection ${connectionId} is invalid, will create a new one:`, error.message);
+                        // Close the invalid connection
+                        try {
+                            await client.end();
+                        } catch (e) {
+                            console.error('Error closing invalid connection:', e);
+                        }
+                        // Remove from map
+                        this.connections.delete(connectionId);
+                    }
                 }
-                // Remove from map
-                this.connections.delete(connectionId);
+                
+                // Get connection info from storage
+                const connectionsStr = localStorage.getItem('pg_monitor_connections');
+                const connections = connectionsStr ? JSON.parse(connectionsStr) : [];
+                const connection = connections.find(conn => conn.id === connectionId);
+                
+                if (!connection) {
+                    throw new Error(`Connection with ID ${connectionId} not found`);
+                }
+                
+                // Create a new client
+                const client = new pg.Client({
+                    user: connection.username,
+                    host: connection.host,
+                    database: connection.database,
+                    password: connection.password,
+                    port: connection.port,
+                    ssl: connection.ssl ? { rejectUnauthorized: false } : false
+                });
+                
+                // Connect to the database
+                await client.connect();
+                
+                // Store the client
+                this.connections.set(connectionId, client);
+                
+                return client;
+            } finally {
+                this.connectionLocks.delete(connectionId);
             }
-        }
-        
-        // Get connection info from storage
-        const connectionsStr = localStorage.getItem('pg_monitor_connections');
-        const connections = connectionsStr ? JSON.parse(connectionsStr) : [];
-        const connection = connections.find(conn => conn.id === connectionId);
-        
-        if (!connection) {
-            throw new Error(`Connection with ID ${connectionId} not found`);
-        }
-        
-        // Create a new client
-        const client = new pg.Client({
-            user: connection.username,
-            host: connection.host,
-            database: connection.database,
-            password: connection.password,
-            port: connection.port,
-            ssl: connection.ssl ? { rejectUnauthorized: false } : false
-        });
-        
-        // Connect to the database
-        await client.connect();
-        
-        // Store the client
-        this.connections.set(connectionId, client);
-        
-        return client;
+        })();
+
+        this.connectionLocks.set(connectionId, lockPromise);
+        return lockPromise;
     },
     
     // Get database statistics (real-time monitoring data)
