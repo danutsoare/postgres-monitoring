@@ -51,68 +51,76 @@ export default class ConnectionManager {
     }
 
     createEditModal() {
-        if (!document.getElementById('edit-connection-modal')) {
-            const modalHtml = `
-                <div class="modal fade" id="edit-connection-modal" tabindex="-1" aria-labelledby="editConnectionModalLabel" aria-hidden="true">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="editConnectionModalLabel">Edit Database Connection</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        // Check if modal already exists
+        let modal = document.getElementById('edit-connection-modal');
+        if (modal) return;
+
+        // Create modal
+        modal = document.createElement('div');
+        modal.id = 'edit-connection-modal';
+        modal.className = 'modal fade';
+        modal.setAttribute('tabindex', '-1');
+        modal.setAttribute('aria-labelledby', 'editConnectionModalLabel');
+        modal.setAttribute('aria-hidden', 'true');
+        
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editConnectionModalLabel">Edit Database Connection</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="edit-connection-form">
+                            <input type="hidden" id="edit-connection-id">
+                            <div class="mb-3">
+                                <label for="edit-connection-name" class="form-label">Connection Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit-connection-name" required>
                             </div>
-                            <div class="modal-body">
-                                <form id="edit-connection-form">
-                                    <input type="hidden" id="edit-connection-id">
-                                    <div class="mb-3">
-                                        <label for="edit-connection-name" class="form-label">Connection Name <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="edit-connection-name" required>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-8 mb-3">
-                                            <label for="edit-connection-host" class="form-label">Host <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control" id="edit-connection-host" required>
-                                        </div>
-                                        <div class="col-md-4 mb-3">
-                                            <label for="edit-connection-port" class="form-label">Port</label>
-                                            <input type="number" class="form-control" id="edit-connection-port" min="1" max="65535">
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="edit-connection-database" class="form-label">Database Name <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="edit-connection-database" required>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label for="edit-connection-username" class="form-label">Username <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control" id="edit-connection-username" required>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label for="edit-connection-password" class="form-label">Password</label>
-                                            <input type="password" class="form-control" id="edit-connection-password" placeholder="Leave empty to keep current password">
-                                            <div class="form-text">Leave empty to keep current password</div>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3 form-check">
-                                        <input type="checkbox" class="form-check-input" id="edit-connection-ssl">
-                                        <label class="form-check-label" for="edit-connection-ssl">Use SSL connection</label>
-                                    </div>
-                                </form>
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <label for="edit-connection-host" class="form-label">Host <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="edit-connection-host" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="edit-connection-port" class="form-label">Port</label>
+                                    <input type="number" class="form-control" id="edit-connection-port" min="1" max="65535">
+                                </div>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="button" class="btn btn-info" id="edit-test-connection-btn">
-                                    <i class="fas fa-vial"></i> Test Connection
-                                </button>
-                                <button type="button" class="btn btn-primary" id="update-connection-btn">
-                                    <i class="fas fa-save"></i> Update Connection
-                                </button>
+                            <div class="mb-3">
+                                <label for="edit-connection-database" class="form-label">Database Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit-connection-database" required>
                             </div>
-                        </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="edit-connection-username" class="form-label">Username <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="edit-connection-username" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="edit-connection-password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="edit-connection-password" placeholder="Leave empty to keep current password">
+                                </div>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="edit-connection-ssl">
+                                <label class="form-check-label" for="edit-connection-ssl">Use SSL connection</label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-info" id="edit-test-connection-btn">
+                            <i class="fas fa-vial"></i> Test Connection
+                        </button>
+                        <button type="button" class="btn btn-primary" id="update-connection-btn">
+                            <i class="fas fa-save"></i> Update Connection
+                        </button>
                     </div>
                 </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-        }
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
     }
 
     initEventListeners() {
@@ -378,84 +386,61 @@ export default class ConnectionManager {
     }
     
     editConnection(connectionId) {
-        console.log(`Editing connection with ID: ${connectionId}`);
-        
-        // Find the connection details from our stored connections
-        const connectionToEdit = this.connections.find(conn => conn.id === parseInt(connectionId));
-        
-        if (!connectionToEdit) {
-            console.error(`Connection with ID ${connectionId} not found`);
+        // Find the connection
+        const connection = this.connections.find(c => String(c.id) === String(connectionId));
+        if (!connection) {
+            console.error('Connection not found:', connectionId);
             this.showAlert('danger', 'Connection not found');
             return;
         }
-        
-        // Store connection ID for update
-        this.connectionToEdit = parseInt(connectionId);
-        
-        // Ensure modal exists and is initialized
-        if (!this.editConnectionModal) {
-            console.error('Edit connection modal not initialized');
-            this.showAlert('danger', 'Error initializing edit form');
-            return;
-        }
 
-        // Show modal first
-        this.editConnectionModal.show();
-        
-        // Use a longer timeout and add retry logic
-        let attempts = 0;
-        const maxAttempts = 5;
-        
-        const tryPopulateFields = () => {
-            const fields = {
-                id: document.getElementById('edit-connection-id'),
-                name: document.getElementById('edit-connection-name'),
-                host: document.getElementById('edit-connection-host'),
-                port: document.getElementById('edit-connection-port'),
-                database: document.getElementById('edit-connection-database'),
-                username: document.getElementById('edit-connection-username'),
-                password: document.getElementById('edit-connection-password'),
-                ssl: document.getElementById('edit-connection-ssl')
-            };
+        // Ensure modal exists
+        this.createEditModal();
 
-            // Check if all fields exist
-            const missingFields = Object.entries(fields)
-                .filter(([_, element]) => !element)
-                .map(([fieldName]) => fieldName);
+        // Show the modal
+        if (this.editConnectionModal) {
+            this.editConnectionModal.show();
 
-            if (missingFields.length > 0) {
-                attempts++;
-                if (attempts < maxAttempts) {
-                    console.log(`Attempt ${attempts}: Some fields not found, retrying in 100ms...`);
-                    setTimeout(tryPopulateFields, 100);
-                    return;
-                } else {
-                    console.error('Failed to find form fields after multiple attempts:', missingFields);
-                    this.showAlert('danger', 'Error loading edit form: Some fields not found');
-                    this.editConnectionModal.hide();
+            // Wait for modal to be shown before populating fields
+            const modalElement = document.getElementById('edit-connection-modal');
+            modalElement.addEventListener('shown.bs.modal', () => {
+                // Get all form fields
+                const fields = {
+                    id: document.getElementById('edit-connection-id'),
+                    name: document.getElementById('edit-connection-name'),
+                    host: document.getElementById('edit-connection-host'),
+                    port: document.getElementById('edit-connection-port'),
+                    database: document.getElementById('edit-connection-database'),
+                    username: document.getElementById('edit-connection-username'),
+                    password: document.getElementById('edit-connection-password'),
+                    ssl: document.getElementById('edit-connection-ssl')
+                };
+
+                // Check if all fields exist
+                const missingFields = Object.entries(fields)
+                    .filter(([_, element]) => !element)
+                    .map(([fieldName]) => fieldName);
+
+                if (missingFields.length > 0) {
+                    console.error('Form fields not found:', missingFields);
+                    this.showAlert('danger', 'One or more form fields not found');
                     return;
                 }
-            }
 
-            // All fields found, populate them
-            try {
-                fields.id.value = connectionToEdit.id;
-                fields.name.value = connectionToEdit.name;
-                fields.host.value = connectionToEdit.host;
-                fields.port.value = connectionToEdit.port;
-                fields.database.value = connectionToEdit.database;
-                fields.username.value = connectionToEdit.username;
-                fields.password.value = ''; // Password field is blank for security reasons
-                fields.ssl.checked = connectionToEdit.ssl;
-            } catch (error) {
-                console.error('Error populating form fields:', error);
-                this.showAlert('danger', 'Error populating form fields');
-                this.editConnectionModal.hide();
-            }
-        };
-
-        // Start the first attempt after a short delay to let the modal render
-        setTimeout(tryPopulateFields, 100);
+                // Populate form fields
+                fields.id.value = connection.id;
+                fields.name.value = connection.name;
+                fields.host.value = connection.host;
+                fields.port.value = connection.port;
+                fields.database.value = connection.database;
+                fields.username.value = connection.username;
+                fields.password.value = ''; // Don't populate password
+                fields.ssl.checked = connection.ssl;
+            }, { once: true }); // Remove listener after first execution
+        } else {
+            console.error('Edit modal not initialized');
+            this.showAlert('danger', 'Could not open edit modal');
+        }
     }
     
     showDeleteConnectionConfirmation(connectionId) {
