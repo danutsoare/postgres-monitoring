@@ -1,7 +1,13 @@
 export default class ConnectionManager {
     constructor() {
         console.log('ConnectionManager initialized');
+        this.initializeDOMElements();
+        this.initializeModals();
+        this.initEventListeners();
+        this.loadConnections();
+    }
 
+    initializeDOMElements() {
         // DOM Elements
         this.connectionsTable = document.getElementById('connections-table');
         this.addConnectionBtn = document.getElementById('add-connection-btn');
@@ -11,43 +17,181 @@ export default class ConnectionManager {
         this.editTestConnectionBtn = document.getElementById('edit-test-connection-btn');
         this.confirmDeleteConnectionBtn = document.getElementById('confirm-delete-connection-btn');
         this.refreshConnectionsBtn = document.getElementById('refresh-connections-btn');
-        
+    }
+
+    initializeModals() {
         // Create modals if they don't exist
+        this.createAddModal();
         this.createEditModal();
-        
-        // Initialize modals
+        this.createDeleteModal();
+
+        // Initialize Bootstrap modals
+        const addModal = document.getElementById('add-connection-modal');
         const editModal = document.getElementById('edit-connection-modal');
+        const deleteModal = document.getElementById('delete-connection-modal');
+
+        if (addModal) {
+            this.addConnectionModal = new bootstrap.Modal(addModal);
+        }
         if (editModal) {
             this.editConnectionModal = new bootstrap.Modal(editModal);
         }
+        if (deleteModal) {
+            this.deleteConnectionModal = new bootstrap.Modal(deleteModal);
+        }
+    }
 
-        this.addConnectionModal = new bootstrap.Modal(document.getElementById('add-connection-modal'));
-        this.deleteConnectionModal = new bootstrap.Modal(document.getElementById('delete-connection-modal'));
-        
-        // Forms
-        this.addConnectionForm = document.getElementById('add-connection-form');
-        this.editConnectionForm = document.getElementById('edit-connection-form');
-        
-        // Instance variables
-        this.connectionToDelete = null;
-        this.connectionToEdit = null;
-        this.connections = []; // Store loaded connections
-        
-        // Bind methods
-        this.initEventListeners = this.initEventListeners.bind(this);
-        this.resetAddConnectionForm = this.resetAddConnectionForm.bind(this);
-        this.testNewConnection = this.testNewConnection.bind(this);
-        this.testExistingConnection = this.testExistingConnection.bind(this);
-        this.saveNewConnection = this.saveNewConnection.bind(this);
-        this.updateConnection = this.updateConnection.bind(this);
-        this.loadConnections = this.loadConnections.bind(this);
-        this.editConnection = this.editConnection.bind(this);
-        this.deleteConnection = this.deleteConnection.bind(this);
-        this.showDeleteConnectionConfirmation = this.showDeleteConnectionConfirmation.bind(this);
-        
-        // Initialize
-        this.initEventListeners();
-        this.loadConnections();
+    createAddModal() {
+        if (document.getElementById('add-connection-modal')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'add-connection-modal';
+        modal.className = 'modal fade';
+        modal.setAttribute('tabindex', '-1');
+        modal.setAttribute('aria-labelledby', 'addConnectionModalLabel');
+        modal.setAttribute('aria-hidden', 'true');
+
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addConnectionModalLabel">Add Database Connection</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="add-connection-form">
+                            <div class="mb-3">
+                                <label for="connection-name" class="form-label">Connection Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="connection-name" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <label for="connection-host" class="form-label">Host <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="connection-host" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="connection-port" class="form-label">Port</label>
+                                    <input type="number" class="form-control" id="connection-port" value="5432">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="connection-database" class="form-label">Database Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="connection-database" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="connection-username" class="form-label">Username <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="connection-username" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="connection-password" class="form-label">Password <span class="text-danger">*</span></label>
+                                    <input type="password" class="form-control" id="connection-password" required>
+                                </div>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="connection-ssl">
+                                <label class="form-check-label" for="connection-ssl">Use SSL connection</label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-info" id="test-connection-btn">
+                            <i class="fas fa-vial"></i> Test Connection
+                        </button>
+                        <button type="button" class="btn btn-primary" id="save-connection-btn">
+                            <i class="fas fa-save"></i> Save Connection
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+    }
+
+    createDeleteModal() {
+        if (document.getElementById('delete-connection-modal')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'delete-connection-modal';
+        modal.className = 'modal fade';
+        modal.setAttribute('tabindex', '-1');
+        modal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Delete Connection</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this connection? This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="confirm-delete-connection-btn">
+                            <i class="fas fa-trash"></i> Delete Connection
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+    }
+
+    initEventListeners() {
+        // Add Connection Button
+        if (this.addConnectionBtn) {
+            this.addConnectionBtn.addEventListener('click', () => {
+                console.log('Add Connection Button Clicked');
+                this.showAddModal();
+            });
+        }
+
+        // Refresh connections button
+        if (this.refreshConnectionsBtn) {
+            this.refreshConnectionsBtn.addEventListener('click', () => {
+                console.log('Refreshing connections...');
+                this.loadConnections();
+            });
+        }
+
+        // Add event listeners for dynamically created elements
+        document.addEventListener('click', (e) => {
+            // Test Connection Button (Add form)
+            if (e.target.matches('#test-connection-btn')) {
+                this.testNewConnection();
+            }
+            // Save Connection Button
+            else if (e.target.matches('#save-connection-btn')) {
+                this.saveNewConnection();
+            }
+            // Test Connection Button (Edit form)
+            else if (e.target.matches('#edit-test-connection-btn')) {
+                this.testExistingConnection();
+            }
+            // Update Connection Button
+            else if (e.target.matches('#update-connection-btn')) {
+                this.updateConnection();
+            }
+            // Delete Connection Button
+            else if (e.target.matches('#confirm-delete-connection-btn')) {
+                if (this.connectionToDelete) {
+                    this.deleteConnection(this.connectionToDelete);
+                }
+            }
+        });
+    }
+
+    showAddModal() {
+        if (this.addConnectionModal) {
+            this.resetAddConnectionForm();
+            this.addConnectionModal.show();
+        } else {
+            console.error('Add connection modal not initialized');
+            this.showAlert('danger', 'Could not open add connection form');
+        }
     }
 
     createEditModal() {
@@ -121,63 +265,6 @@ export default class ConnectionManager {
         `;
         
         document.body.appendChild(modal);
-    }
-
-    initEventListeners() {
-        console.log('Initializing event listeners');
-
-        // Add Connection Button
-        if (this.addConnectionBtn) {
-            this.addConnectionBtn.addEventListener('click', () => {
-                console.log('Add Connection Button Clicked');
-                this.resetAddConnectionForm();
-            });
-        }
-
-        // Test Connection Button (Add form)
-        if (this.testConnectionBtn) {
-            this.testConnectionBtn.addEventListener('click', () => this.testNewConnection());
-        }
-        
-        // Test Connection Button (Edit form)
-        if (this.editTestConnectionBtn) {
-            this.editTestConnectionBtn.addEventListener('click', () => this.testExistingConnection());
-        }
-
-        // Save Connection Button
-        if (this.saveConnectionBtn) {
-            this.saveConnectionBtn.addEventListener('click', () => this.saveNewConnection());
-        }
-        
-        // Update Connection Button
-        if (this.updateConnectionBtn) {
-            this.updateConnectionBtn.addEventListener('click', () => this.updateConnection());
-        }
-        
-        // Refresh connections button
-        if (this.refreshConnectionsBtn) {
-            this.refreshConnectionsBtn.addEventListener('click', () => {
-                console.log('Refreshing connections...');
-                this.loadConnections();
-            });
-        }
-        
-        // Delete confirmation button
-        if (this.confirmDeleteConnectionBtn) {
-            this.confirmDeleteConnectionBtn.addEventListener('click', () => {
-                if (this.connectionToDelete) {
-                    this.deleteConnection(this.connectionToDelete);
-                }
-            });
-        }
-    }
-
-    resetAddConnectionForm() {
-        console.log('Resetting Add Connection Form');
-        
-        if (this.addConnectionForm) {
-            this.addConnectionForm.reset();
-        }
     }
 
     async testNewConnection() {
@@ -394,55 +481,82 @@ export default class ConnectionManager {
             return;
         }
 
-        // Ensure modal exists
+        // Store the connection ID for later use
+        this.connectionToEdit = connectionId;
+
+        // Ensure modal exists and is initialized
         this.createEditModal();
+        
+        if (!this.editConnectionModal) {
+            console.error('Edit modal not initialized');
+            this.showAlert('danger', 'Could not open edit form');
+            return;
+        }
 
         // Show the modal
-        if (this.editConnectionModal) {
-            this.editConnectionModal.show();
+        this.editConnectionModal.show();
 
-            // Wait for modal to be shown before populating fields
-            const modalElement = document.getElementById('edit-connection-modal');
-            modalElement.addEventListener('shown.bs.modal', () => {
-                // Get all form fields
-                const fields = {
-                    id: document.getElementById('edit-connection-id'),
-                    name: document.getElementById('edit-connection-name'),
-                    host: document.getElementById('edit-connection-host'),
-                    port: document.getElementById('edit-connection-port'),
-                    database: document.getElementById('edit-connection-database'),
-                    username: document.getElementById('edit-connection-username'),
-                    password: document.getElementById('edit-connection-password'),
-                    ssl: document.getElementById('edit-connection-ssl')
-                };
+        // Wait for modal to be shown before populating fields
+        const modalElement = document.getElementById('edit-connection-modal');
+        modalElement.addEventListener('shown.bs.modal', () => {
+            this.populateEditForm(connection);
+        }, { once: true }); // Remove listener after first execution
+    }
 
-                // Check if all fields exist
-                const missingFields = Object.entries(fields)
-                    .filter(([_, element]) => !element)
-                    .map(([fieldName]) => fieldName);
+    populateEditForm(connection) {
+        try {
+            // Get all form fields
+            const fields = {
+                id: document.getElementById('edit-connection-id'),
+                name: document.getElementById('edit-connection-name'),
+                host: document.getElementById('edit-connection-host'),
+                port: document.getElementById('edit-connection-port'),
+                database: document.getElementById('edit-connection-database'),
+                username: document.getElementById('edit-connection-username'),
+                password: document.getElementById('edit-connection-password'),
+                ssl: document.getElementById('edit-connection-ssl')
+            };
 
-                if (missingFields.length > 0) {
-                    console.error('Form fields not found:', missingFields);
-                    this.showAlert('danger', 'One or more form fields not found');
-                    return;
-                }
+            // Check if all fields exist
+            const missingFields = Object.entries(fields)
+                .filter(([_, element]) => !element)
+                .map(([fieldName]) => fieldName);
 
-                // Populate form fields
-                fields.id.value = connection.id;
-                fields.name.value = connection.name;
-                fields.host.value = connection.host;
-                fields.port.value = connection.port;
-                fields.database.value = connection.database;
-                fields.username.value = connection.username;
-                fields.password.value = ''; // Don't populate password
-                fields.ssl.checked = connection.ssl;
-            }, { once: true }); // Remove listener after first execution
-        } else {
-            console.error('Edit modal not initialized');
-            this.showAlert('danger', 'Could not open edit modal');
+            if (missingFields.length > 0) {
+                throw new Error(`Missing form fields: ${missingFields.join(', ')}`);
+            }
+
+            // Populate form fields
+            fields.id.value = connection.id;
+            fields.name.value = connection.name || '';
+            fields.host.value = connection.host || '';
+            fields.port.value = connection.port || 5432;
+            fields.database.value = connection.database || '';
+            fields.username.value = connection.username || '';
+            fields.password.value = ''; // Don't populate password
+            fields.ssl.checked = connection.ssl || false;
+
+        } catch (error) {
+            console.error('Error populating edit form:', error);
+            this.showAlert('danger', `Error loading edit form: ${error.message}`);
+            if (this.editConnectionModal) {
+                this.editConnectionModal.hide();
+            }
         }
     }
-    
+
+    resetAddConnectionForm() {
+        const form = document.getElementById('add-connection-form');
+        if (form) {
+            form.reset();
+            // Set default port
+            const portField = document.getElementById('connection-port');
+            if (portField) {
+                portField.value = '5432';
+            }
+        }
+    }
+
     showDeleteConnectionConfirmation(connectionId) {
         console.log(`Showing delete confirmation for connection ID: ${connectionId}`);
         
@@ -517,7 +631,11 @@ export default class ConnectionManager {
         try {
             // Remove any existing alerts first
             const existingAlerts = document.querySelectorAll('.alert');
-            existingAlerts.forEach(alert => alert.remove());
+            existingAlerts.forEach(alert => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            });
 
             // Create new alert
             const alertContainer = document.createElement('div');
@@ -537,14 +655,11 @@ export default class ConnectionManager {
             
             document.body.appendChild(alertContainer);
             
-            // Initialize Bootstrap alert
-            const bsAlert = new bootstrap.Alert(alertContainer);
-            
             // Auto-remove after 5 seconds for non-error alerts
             if (type !== 'danger') {
                 setTimeout(() => {
                     if (alertContainer && alertContainer.parentNode) {
-                        bsAlert.close();
+                        alertContainer.parentNode.removeChild(alertContainer);
                     }
                 }, 5000);
             }
