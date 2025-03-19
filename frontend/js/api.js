@@ -287,23 +287,7 @@ export default class PostgreSQLMonitorAPI {
             }
         } catch (error) {
             console.error('Error fetching database statistics:', error);
-            
-            // Return a fallback response to prevent application crashes
-            console.warn('Returning fallback database statistics');
-            return {
-                success: true,
-                stats: {
-                    // Minimal mock data to prevent UI errors
-                    sessions: [],
-                    waitEvents: [],
-                    blockingSessions: [],
-                    tempUsage: [],
-                    cpuUsage: [],
-                    databaseSize: '0 MB',
-                    tableSizes: [],
-                    extensions: []
-                }
-            };
+            throw error; // Re-throw the error to be handled by the caller
         }
     }
 

@@ -266,9 +266,18 @@ const PgClient = {
                 // 3. Database size
                 try {
                     const dbSizeQuery = await client.query(`
-                        SELECT pg_size_pretty(pg_database_size(current_database())) as size
+                        WITH db_size AS (
+                            SELECT COALESCE(pg_size_pretty(pg_database_size(current_database())), '0 MB') as size
+                        )
+                        SELECT size FROM db_size
                     `);
-                    stats.databaseSize = dbSizeQuery.rows[0]?.size || '0 MB';
+                    
+                    if (!dbSizeQuery.rows || dbSizeQuery.rows.length === 0) {
+                        console.warn('Database size query returned no results');
+                        stats.databaseSize = '0 MB';
+                    } else {
+                        stats.databaseSize = dbSizeQuery.rows[0].size || '0 MB';
+                    }
                 } catch (dbSizeError) {
                     console.warn('Error fetching database size:', dbSizeError.message);
                     stats.databaseSize = '0 MB';
@@ -446,11 +455,16 @@ const PgClient = {
                 stats.extensions = extensionsQuery.rows;
                 
                 // 10. Connection count
-                const connectionCountQuery = await client.query(`
-                    SELECT count(*) as connection_count
-                    FROM pg_stat_activity
-                `);
-                stats.connectionCount = connectionCountQuery.rows[0].connection_count;
+                try {
+                    const connectionCountQuery = await client.query(`
+                        SELECT count(*) as connection_count
+                        FROM pg_stat_activity
+                    `);
+                    stats.connectionCount = connectionCountQuery.rows[0]?.connection_count || 0;
+                } catch (countError) {
+                    console.warn('Error fetching connection count:', countError.message);
+                    stats.connectionCount = 0;
+                }
                 
                 return {
                     success: true,

@@ -487,57 +487,25 @@ async function refreshAllData() {
         }
 
         // Test the connection first if not already tested
-        // Fix the block structure in dashboard.js
         if (!dashboardState.connectionTested) {
             try {
-                // Check if PgClient is available
-                if (typeof window.PgClient === 'undefined' || !window.PgClient.testConnection) {
-                    console.warn('PgClient not available, using API directly');
-                    
-                    // Use postgresMonitorApi instead
-                    if (!window.postgresMonitorApi || typeof window.postgresMonitorApi.testConnection !== 'function') {
-                        console.error('postgresMonitorApi.testConnection method is missing');
-                        throw new Error('API testing functionality not available');
-                    }
-                    
-                    const testResult = await window.postgresMonitorApi.testConnection({
-                        username: connection.username,
-                        host: connection.host,
-                        database: connection.database,
-                        password: connection.password,
-                        port: connection.port,
-                        ssl: connection.ssl
-                    });
-                    
-                    dashboardState.connectionTested = true;
-                    
-                    if (!testResult.success) {
-                        updateConnectionStatus(connection.id, 'Disconnected');
-                        throw new Error(`Connection test failed: ${testResult.error || 'Unknown error'}`);
-                    } else {
-                        updateConnectionStatus(connection.id, 'Connected');
-                        updateVersionBadge(testResult.version || 'Unknown');
-                    }
+                const testResult = await window.postgresMonitorApi.testConnection({
+                    username: connection.username,
+                    host: connection.host,
+                    database: connection.database,
+                    password: connection.password,
+                    port: connection.port,
+                    ssl: connection.ssl
+                });
+                
+                dashboardState.connectionTested = true;
+                
+                if (!testResult.success) {
+                    updateConnectionStatus(connection.id, 'Disconnected');
+                    throw new Error(`Connection test failed: ${testResult.error || 'Unknown error'}`);
                 } else {
-                    // Original code using PgClient
-                    const testResult = await window.PgClient.testConnection({
-                        username: connection.username,
-                        host: connection.host,
-                        database: connection.database,
-                        password: connection.password,
-                        port: connection.port,
-                        ssl: connection.ssl
-                    });
-                    
-                    dashboardState.connectionTested = true;
-                    
-                    if (!testResult.success) {
-                        updateConnectionStatus(connection.id, 'Disconnected');
-                        throw new Error(`Connection test failed: ${testResult.error}`);
-                    } else {
-                        updateConnectionStatus(connection.id, 'Connected');
-                        updateVersionBadge(testResult.version);
-                    }
+                    updateConnectionStatus(connection.id, 'Connected');
+                    updateVersionBadge(testResult.version || 'Unknown');
                 }
             } catch (error) {
                 updateConnectionStatus(connection.id, 'Disconnected');
@@ -547,73 +515,20 @@ async function refreshAllData() {
 
         // Get database statistics
         let result;
-        if (typeof window.PgClient === 'undefined' || !window.PgClient.getDbStats) {
-            console.warn('PgClient.getDbStats not available, using API directly');
+        try {
+            result = await window.postgresMonitorApi.getDatabaseStats(dashboardState.selectedDatabase);
             
-            // Check if postgresMonitorApi exists
-            if (!window.postgresMonitorApi) {
-                throw new Error('API client not available');
-            }
+            // Log the result structure for debugging
+            console.debug('API result structure:', Object.keys(result));
             
-            // Check if the getDatabaseStats method exists
-            if (typeof window.postgresMonitorApi.getDatabaseStats !== 'function') {
-                console.error('postgresMonitorApi.getDatabaseStats method is missing, using fallback');
-                
-                // Create a fallback implementation
-                window.postgresMonitorApi.getDatabaseStats = async function(connectionId) {
-                    console.warn(`Using fallback implementation for getDatabaseStats with connection ID: ${connectionId}`);
-                    
-                    // Log the available methods for debugging
-                    const methods = [];
-                    for (const prop in window.postgresMonitorApi) {
-                        if (typeof window.postgresMonitorApi[prop] === 'function') {
-                            methods.push(prop);
-                        }
-                    }
-                    console.info('Available API methods:', methods);
-                    
-                    // Return empty successful response to prevent errors
-                    return {
-                        success: true,
-                        stats: {
-                            // Minimal mock data to prevent UI errors
-                            sessions: [],
-                            waitEvents: [],
-                            blockingSessions: [],
-                            tempUsage: [],
-                            cpuUsage: [],
-                            databaseSize: '0 MB',
-                            tableSizes: [],
-                            extensions: []
-                        }
-                    };
-                };
+            // Check if the response has the expected structure
+            if (!result || !result.stats) {
+                console.warn('Unexpected API response format:', result);
+                throw new Error('Invalid response format from API');
             }
-            
-            // Now use the API method (either real or fallback)
-            try {
-                result = await window.postgresMonitorApi.getDatabaseStats(dashboardState.selectedDatabase);
-                
-                // Log the result structure for debugging
-                console.debug('API result structure:', Object.keys(result));
-                
-                // Check if the response has the expected structure
-                if (!result || !result.stats) {
-                    console.warn('Unexpected API response format:', result);
-                    throw new Error('Invalid response format from API');
-                }
-            } catch (apiError) {
-                console.error('Error calling getDatabaseStats:', apiError);
-                throw new Error(`Failed to fetch database statistics: ${apiError.message}`);
-            }
-        } else {
-            // Use PgClient if available
-            try {
-                result = await window.PgClient.getDbStats(dashboardState.selectedDatabase);
-            } catch (pgError) {
-                console.error('Error using PgClient.getDbStats:', pgError);
-                throw new Error(`Failed to fetch database statistics via PgClient: ${pgError.message}`);
-            }
+        } catch (apiError) {
+            console.error('Error calling getDatabaseStats:', apiError);
+            throw new Error(`Failed to fetch database statistics: ${apiError.message}`);
         }
 
         // Add this code after successful API response but before refreshSectionData
@@ -630,29 +545,17 @@ async function refreshAllData() {
             updateVersionBadge('Unknown');
         }
 
-        // Update timestamp of successful refresh
-        const lastRefreshTime = document.getElementById('last-refresh-time');
-        if (lastRefreshTime) {
-            lastRefreshTime.textContent = new Date().toLocaleTimeString();
-        }
+        // Refresh the current section with the new data
+        refreshSectionData(dashboardState.currentSection, result.stats);
 
-        // Refresh section-specific data based on current section
-        await refreshSectionData(dashboardState.currentSection, result.stats);
-        
-        // Clear any previous errors
-        if (dashboardState.lastErrorMessage) {
-            hideError();
-            dashboardState.lastErrorMessage = null;
-        }
     } catch (error) {
         console.error('Error refreshing data:', error);
-        showError(`Failed to refresh data: ${error.message}`);
-        dashboardState.lastErrorMessage = error.message;
+        showError(error.message);
+        updateConnectionStatus(connection.id, 'Error');
     } finally {
-        // Hide loading indicator
-        hideLoading();
         // Clear loading state
         dashboardState.isLoading = false;
+        hideLoading();
     }
 }
 

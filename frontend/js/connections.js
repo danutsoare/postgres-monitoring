@@ -1,4 +1,3 @@
-// Fixed ConnectionManager class with proper edit functionality and test button
 export default class ConnectionManager {
     constructor() {
         console.log('ConnectionManager initialized');
@@ -13,9 +12,16 @@ export default class ConnectionManager {
         this.confirmDeleteConnectionBtn = document.getElementById('confirm-delete-connection-btn');
         this.refreshConnectionsBtn = document.getElementById('refresh-connections-btn');
         
-        // Modals
+        // Create modals if they don't exist
+        this.createEditModal();
+        
+        // Initialize modals
+        const editModal = document.getElementById('edit-connection-modal');
+        if (editModal) {
+            this.editConnectionModal = new bootstrap.Modal(editModal);
+        }
+
         this.addConnectionModal = new bootstrap.Modal(document.getElementById('add-connection-modal'));
-        this.editConnectionModal = new bootstrap.Modal(document.getElementById('edit-connection-modal'));
         this.deleteConnectionModal = new bootstrap.Modal(document.getElementById('delete-connection-modal'));
         
         // Forms
@@ -42,6 +48,71 @@ export default class ConnectionManager {
         // Initialize
         this.initEventListeners();
         this.loadConnections();
+    }
+
+    createEditModal() {
+        if (!document.getElementById('edit-connection-modal')) {
+            const modalHtml = `
+                <div class="modal fade" id="edit-connection-modal" tabindex="-1" aria-labelledby="editConnectionModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="editConnectionModalLabel">Edit Database Connection</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="edit-connection-form">
+                                    <input type="hidden" id="edit-connection-id">
+                                    <div class="mb-3">
+                                        <label for="edit-connection-name" class="form-label">Connection Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="edit-connection-name" required>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-8 mb-3">
+                                            <label for="edit-connection-host" class="form-label">Host <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="edit-connection-host" required>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <label for="edit-connection-port" class="form-label">Port</label>
+                                            <input type="number" class="form-control" id="edit-connection-port" min="1" max="65535">
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit-connection-database" class="form-label">Database Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="edit-connection-database" required>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="edit-connection-username" class="form-label">Username <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="edit-connection-username" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="edit-connection-password" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="edit-connection-password" placeholder="Leave empty to keep current password">
+                                            <div class="form-text">Leave empty to keep current password</div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="edit-connection-ssl">
+                                        <label class="form-check-label" for="edit-connection-ssl">Use SSL connection</label>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-info" id="edit-test-connection-btn">
+                                    <i class="fas fa-vial"></i> Test Connection
+                                </button>
+                                <button type="button" class="btn btn-primary" id="update-connection-btn">
+                                    <i class="fas fa-save"></i> Update Connection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
     }
 
     initEventListeners() {
@@ -321,18 +392,70 @@ export default class ConnectionManager {
         // Store connection ID for update
         this.connectionToEdit = parseInt(connectionId);
         
-        // Populate the edit form
-        document.getElementById('edit-connection-id').value = connectionToEdit.id;
-        document.getElementById('edit-connection-name').value = connectionToEdit.name;
-        document.getElementById('edit-connection-host').value = connectionToEdit.host;
-        document.getElementById('edit-connection-port').value = connectionToEdit.port;
-        document.getElementById('edit-connection-database').value = connectionToEdit.database;
-        document.getElementById('edit-connection-username').value = connectionToEdit.username;
-        document.getElementById('edit-connection-password').value = ''; // Password field is blank for security reasons
-        document.getElementById('edit-connection-ssl').checked = connectionToEdit.ssl;
-        
-        // Show the modal
+        // Ensure modal exists and is initialized
+        if (!this.editConnectionModal) {
+            console.error('Edit connection modal not initialized');
+            this.showAlert('danger', 'Error initializing edit form');
+            return;
+        }
+
+        // Show modal first
         this.editConnectionModal.show();
+        
+        // Use a longer timeout and add retry logic
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        const tryPopulateFields = () => {
+            const fields = {
+                id: document.getElementById('edit-connection-id'),
+                name: document.getElementById('edit-connection-name'),
+                host: document.getElementById('edit-connection-host'),
+                port: document.getElementById('edit-connection-port'),
+                database: document.getElementById('edit-connection-database'),
+                username: document.getElementById('edit-connection-username'),
+                password: document.getElementById('edit-connection-password'),
+                ssl: document.getElementById('edit-connection-ssl')
+            };
+
+            // Check if all fields exist
+            const missingFields = Object.entries(fields)
+                .filter(([_, element]) => !element)
+                .map(([fieldName]) => fieldName);
+
+            if (missingFields.length > 0) {
+                attempts++;
+                if (attempts < maxAttempts) {
+                    console.log(`Attempt ${attempts}: Some fields not found, retrying in 100ms...`);
+                    setTimeout(tryPopulateFields, 100);
+                    return;
+                } else {
+                    console.error('Failed to find form fields after multiple attempts:', missingFields);
+                    this.showAlert('danger', 'Error loading edit form: Some fields not found');
+                    this.editConnectionModal.hide();
+                    return;
+                }
+            }
+
+            // All fields found, populate them
+            try {
+                fields.id.value = connectionToEdit.id;
+                fields.name.value = connectionToEdit.name;
+                fields.host.value = connectionToEdit.host;
+                fields.port.value = connectionToEdit.port;
+                fields.database.value = connectionToEdit.database;
+                fields.username.value = connectionToEdit.username;
+                fields.password.value = ''; // Password field is blank for security reasons
+                fields.ssl.checked = connectionToEdit.ssl;
+            } catch (error) {
+                console.error('Error populating form fields:', error);
+                this.showAlert('danger', 'Error populating form fields');
+                this.editConnectionModal.hide();
+            }
+        };
+
+        // Start the first attempt after a short delay to let the modal render
+        setTimeout(tryPopulateFields, 100);
     }
     
     showDeleteConnectionConfirmation(connectionId) {
@@ -405,25 +528,43 @@ export default class ConnectionManager {
         button.innerHTML = originalText;
     }
 
-    showAlert(type, message) {
-        const alertContainer = document.createElement('div');
-        alertContainer.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
-        alertContainer.style.zIndex = '1050';
-        alertContainer.setAttribute('role', 'alert');
-        
-        alertContainer.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
-        
-        document.body.appendChild(alertContainer);
-        
-        // Auto-remove after 5 seconds for non-error alerts
-        if (type !== 'danger') {
-            setTimeout(() => {
-                alertContainer.classList.remove('show');
-                setTimeout(() => alertContainer.remove(), 150);
-            }, 5000);
+    showAlert(type, message = 'An error occurred') {
+        try {
+            // Remove any existing alerts first
+            const existingAlerts = document.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => alert.remove());
+
+            // Create new alert
+            const alertContainer = document.createElement('div');
+            alertContainer.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+            alertContainer.style.zIndex = '1050';
+            alertContainer.setAttribute('role', 'alert');
+            
+            // Ensure message is a string
+            const safeMessage = message && typeof message === 'object' ? 
+                (message.message || JSON.stringify(message)) : 
+                (message || 'An error occurred');
+            
+            alertContainer.innerHTML = `
+                ${this.escapeHtml(safeMessage)}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            document.body.appendChild(alertContainer);
+            
+            // Initialize Bootstrap alert
+            const bsAlert = new bootstrap.Alert(alertContainer);
+            
+            // Auto-remove after 5 seconds for non-error alerts
+            if (type !== 'danger') {
+                setTimeout(() => {
+                    if (alertContainer && alertContainer.parentNode) {
+                        bsAlert.close();
+                    }
+                }, 5000);
+            }
+        } catch (error) {
+            console.error('Error showing alert:', error);
         }
     }
 
