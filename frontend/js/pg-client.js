@@ -264,10 +264,15 @@ const PgClient = {
                 stats.cpuUsage = cpuUsageQuery.rows;
                 
                 // 3. Database size
-                const dbSizeQuery = await client.query(`
-                    SELECT pg_size_pretty(pg_database_size(current_database())) as size
-                `);
-                stats.databaseSize = dbSizeQuery.rows[0].size;
+                try {
+                    const dbSizeQuery = await client.query(`
+                        SELECT pg_size_pretty(pg_database_size(current_database())) as size
+                    `);
+                    stats.databaseSize = dbSizeQuery.rows[0]?.size || '0 MB';
+                } catch (dbSizeError) {
+                    console.warn('Error fetching database size:', dbSizeError.message);
+                    stats.databaseSize = '0 MB';
+                }
                 
                 // 4. Table sizes
                 const tableSizesQuery = await client.query(`
