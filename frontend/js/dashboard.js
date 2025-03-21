@@ -21,23 +21,28 @@ const dashboardState = {
 };
 
 // Initialize the dashboard when DOM is fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize charts
-    if (window.postgresMonitorCharts) {
-        window.postgresMonitorCharts.init();
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // Initialize charts
+        if (window.postgresMonitorCharts) {
+            window.postgresMonitorCharts.init();
+        }
+        
+        // Setup event listeners
+        setupEventListeners();
+        
+        // Load connections
+        await loadConnections();
+        
+        // Check for saved theme preference
+        loadUserPreferences();
+        
+        // Initialize auto-refresh
+        startAutoRefresh();
+    } catch (error) {
+        console.error('Error initializing dashboard:', error);
+        showError('Failed to initialize dashboard');
     }
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    // Load connections
-    loadConnections();
-    
-    // Check for saved theme preference
-    loadUserPreferences();
-    
-    // Initialize auto-refresh
-    startAutoRefresh();
 });
 
 // Setup all event listeners for the dashboard
@@ -113,56 +118,20 @@ function setupEventListeners() {
     }
 }
 
-// Add this function
-async function syncConnectionsWithBackend() {
-    try {
-      console.log('Synchronizing connections with backend...');
-      // Get connections from API
-      const apiConnections = await window.postgresMonitorApi.getConnections();
-      
-      // Update localStorage
-      localStorage.setItem('pg_monitor_connections', JSON.stringify(apiConnections));
-      
-      // Update dashboard state
-      dashboardState.connections = apiConnections;
-      console.log('Connections synchronized:', apiConnections);
-      
-      return apiConnections;
-    } catch (error) {
-      console.error('Error synchronizing connections:', error);
-      return null;
-    }
-  }
-
-
 // Load connections from backend and local storage
 async function loadConnections() {
     try {
         console.log('Loading connections...');
-        
-        // Try to sync with backend first
-        try {
-            await syncConnectionsWithBackend();
-            console.log('Backend synchronization complete');
-        } catch (syncError) {
-            console.warn('Could not sync with backend, falling back to localStorage:', syncError);
-            
-            // Fall back to localStorage if API fails
-            const storedConnections = localStorage.getItem('pg_monitor_connections');
-            if (storedConnections) {
-                dashboardState.connections = JSON.parse(storedConnections);
-            } else {
-                dashboardState.connections = [];
-            }
+        if (!window.connectionManager) {
+            console.error('ConnectionManager not initialized');
+            return;
         }
+        await window.connectionManager.loadConnections();
         
-        // Update UI with the connections (whether from API or localStorage)
-        updateConnectionsDropdown();
-        updateConnectionsUI();
-        
-        // Check if we have a stored selected connection
+        // Get the selected connection from local storage
         const selectedConnection = localStorage.getItem('pg_monitor_selected_connection');
-        if (selectedConnection && dashboardState.connections.some(conn => String(conn.id) === String(selectedConnection))) {
+        
+        if (selectedConnection && window.connectionManager.connections.some(conn => String(conn.id) === String(selectedConnection))) {
             dashboardState.selectedDatabase = selectedConnection;
             
             // Update dropdown
@@ -173,14 +142,14 @@ async function loadConnections() {
             
             // Initial data load
             refreshAllData();
-        } else if (dashboardState.connections.length > 0) {
+        } else if (window.connectionManager.connections.length > 0) {
             // Select first connection by default
-            dashboardState.selectedDatabase = dashboardState.connections[0].id;
+            dashboardState.selectedDatabase = window.connectionManager.connections[0].id;
             
             // Update dropdown
             const databaseSelector = document.querySelector('.database-selector');
             if (databaseSelector) {
-                databaseSelector.value = String(dashboardState.connections[0].id);
+                databaseSelector.value = String(window.connectionManager.connections[0].id);
             }
             
             // Initial data load
@@ -210,7 +179,7 @@ function updateConnectionsDropdown() {
     databaseSelector.appendChild(defaultOption);
     
     // Add connections
-    dashboardState.connections.forEach(conn => {
+    window.connectionManager.connections.forEach(conn => {
         const option = document.createElement('option');
         option.value = conn.id;
         option.textContent = `${conn.name} (${conn.host}:${conn.port}/${conn.database})`;
@@ -234,13 +203,13 @@ function updateConnectionsUI() {
     // Clear existing rows
     tbody.innerHTML = '';
     
-    if (dashboardState.connections.length === 0) {
+    if (window.connectionManager.connections.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center">No database connections configured</td></tr>';
         return;
     }
     
     // Add rows for each connection
-    dashboardState.connections.forEach(conn => {
+    window.connectionManager.connections.forEach(conn => {
         const row = document.createElement('tr');
         
         // Use connection status if available, otherwise assume connected
@@ -273,23 +242,8 @@ function updateConnectionsUI() {
 
 // Setup event listeners for connection buttons
 function setupConnectionButtonListeners() {
-    // Edit connection buttons
-    const editButtons = document.querySelectorAll('.edit-conn-btn');
-    editButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const connectionId = String(this.getAttribute('data-id'));
-            editConnection(connectionId);
-        });
-    });
-    
-    // Delete connection buttons
-    const deleteButtons = document.querySelectorAll('.delete-conn-btn');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const connectionId = this.getAttribute('data-id');
-            deleteConnection(connectionId);
-        });
-    });
+    // Edit and delete buttons are now handled by ConnectionManager
+    // This function can be removed or left empty
 }
 
 // Setup navigation between sections
@@ -481,7 +435,7 @@ async function refreshAllData() {
         showLoading();
 
         // Get connection details
-        const connection = dashboardState.connections.find(c => String(c.id) === String(dashboardState.selectedDatabase));
+        const connection = window.connectionManager.connections.find(c => String(c.id) === String(dashboardState.selectedDatabase));
         if (!connection) {
             throw new Error('Selected connection not found');
         }
@@ -562,13 +516,13 @@ async function refreshAllData() {
 // Update the connection status in the state and UI
 function updateConnectionStatus(connectionId, status) {
     // Update in state
-    const connection = dashboardState.connections.find(c => String(c.id) === String(dashboardState.selectedDatabase));
+    const connection = window.connectionManager.connections.find(c => String(c.id) === String(dashboardState.selectedDatabase));
     if (connection) {
         connection.status = status;
     }
     
     // Update in local storage
-    localStorage.setItem('pg_monitor_connections', JSON.stringify(dashboardState.connections));
+    localStorage.setItem('pg_monitor_connections', JSON.stringify(window.connectionManager.connections));
     
     // Update UI
     updateConnectionsUI();
@@ -1470,10 +1424,10 @@ async function saveConnection() {
         connectionData.id = result.id;
 
         // Add to connections array
-        dashboardState.connections.push(connectionData);
+        window.connectionManager.connections.push(connectionData);
         
         // Save to local storage
-        localStorage.setItem('pg_monitor_connections', JSON.stringify(dashboardState.connections));
+        localStorage.setItem('pg_monitor_connections', JSON.stringify(window.connectionManager.connections));
         
         // Update UI
         updateConnectionsDropdown();
@@ -1506,334 +1460,6 @@ async function saveConnection() {
     } catch (error) {
         console.error('Error saving connection:', error);
         showError(`Failed to save connection: ${error.message}`);
-    }
-}
-
-// Edit connection
-function editConnection(connectionId) {
-    // Find the connection
-    const connection = dashboardState.connections.find(c => String(c.id) === String(connectionId));
-    if (!connection) {
-        showError('Connection not found');
-        return;
-    }
-    
-    // Check if modal already exists
-    let modal = document.getElementById('edit-connection-modal');
-    
-    if (!modal) {
-        // Create modal
-        modal = document.createElement('div');
-        modal.id = 'edit-connection-modal';
-        modal.className = 'modal fade';
-        modal.setAttribute('tabindex', '-1');
-        modal.setAttribute('aria-labelledby', 'editConnectionModalLabel');
-        modal.setAttribute('aria-hidden', 'true');
-        
-        modal.innerHTML = `
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="editConnectionModalLabel">Edit Database Connection</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="edit-connection-form">
-                            <input type="hidden" id="edit-connection-id">
-                            <div class="mb-3">
-                                <label for="edit-connection-name" class="form-label">Connection Name <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="edit-connection-name" required>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-8 mb-3">
-                                    <label for="edit-connection-host" class="form-label">Host <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="edit-connection-host" required>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="edit-connection-port" class="form-label">Port</label>
-                                    <input type="number" class="form-control" id="edit-connection-port" min="1" max="65535">
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="edit-connection-database" class="form-label">Database Name <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="edit-connection-database" required>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="edit-connection-username" class="form-label">Username <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="edit-connection-username" required>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="edit-connection-password" class="form-label">Password</label>
-                                    <input type="password" class="form-control" id="edit-connection-password" placeholder="Leave empty to keep current password">
-                                    <div class="form-text">Leave empty to keep current password</div>
-                                </div>
-                            </div>
-                            <div class="mb-3 form-check">
-                                <input type="checkbox" class="form-check-input" id="edit-connection-ssl">
-                                <label class="form-check-label" for="edit-connection-ssl">Use SSL connection</label>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-info" id="edit-test-connection-btn">
-                            <i class="fas fa-vial"></i> Test Connection
-                        </button>
-                        <button type="button" class="btn btn-primary" id="update-connection-btn">
-                            <i class="fas fa-save"></i> Update Connection
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Add event listeners
-        const testBtn = document.getElementById('edit-test-connection-btn');
-        if (testBtn) {
-            testBtn.addEventListener('click', testEditConnection);
-        }
-        
-        const updateBtn = document.getElementById('update-connection-btn');
-        if (updateBtn) {
-            updateBtn.addEventListener('click', updateConnection);
-        }
-    }
-    
-    // Fill form with connection data
-    document.getElementById('edit-connection-id').value = connection.id;
-    document.getElementById('edit-connection-name').value = connection.name;
-    document.getElementById('edit-connection-host').value = connection.host;
-    document.getElementById('edit-connection-port').value = connection.port;
-    document.getElementById('edit-connection-database').value = connection.database;
-    document.getElementById('edit-connection-username').value = connection.username;
-    document.getElementById('edit-connection-password').value = '';
-    document.getElementById('edit-connection-ssl').checked = connection.ssl;
-    
-    // Show modal
-    const bsModal = new bootstrap.Modal(modal);
-    bsModal.show();
-}
-
-// Test edit connection
-async function testEditConnection() {
-    // Get form data
-    const connectionId = document.getElementById('edit-connection-id').value;
-    const connectionData = {
-        username: document.getElementById('edit-connection-username').value,
-        host: document.getElementById('edit-connection-host').value,
-        database: document.getElementById('edit-connection-database').value,
-        password: document.getElementById('edit-connection-password').value,
-        port: parseInt(document.getElementById('edit-connection-port').value),
-        ssl: document.getElementById('edit-connection-ssl').checked
-    };
-    
-    // Validate required fields
-    if (!connectionData.username || !connectionData.host || !connectionData.database) {
-        showError('Please fill in all required fields');
-        return;
-    }
-    
-    // If password is empty, use existing password
-    if (!connectionData.password) {
-        const existingConnection = dashboardState.connections.find(c => c.id === connectionId);
-        if (existingConnection) {
-            connectionData.password = existingConnection.password;
-        } else {
-            showError('Connection not found');
-            return;
-        }
-    }
-    
-    try {
-        // Update button state
-        const testBtn = document.getElementById('edit-test-connection-btn');
-        if (testBtn) {
-            testBtn.disabled = true;
-            testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
-        }
-        
-        // Test connection
-        const result = await window.PgClient.testConnection(connectionData);
-        
-        // Restore button state
-        if (testBtn) {
-            testBtn.disabled = false;
-            testBtn.innerHTML = '<i class="fas fa-vial"></i> Test Connection';
-        }
-        
-        if (result.success) {
-            // Show success message with version
-            const successAlert = document.createElement('div');
-            successAlert.className = 'alert alert-success mt-3';
-            successAlert.innerHTML = `
-                <i class="fas fa-check-circle me-2"></i> Connection successful! 
-                <strong>PostgreSQL ${result.version}</strong> detected.
-            `;
-            
-            // Add to form
-            const form = document.getElementById('edit-connection-form');
-            if (form) {
-                // Remove any existing alerts
-                const existingAlerts = form.querySelectorAll('.alert');
-                existingAlerts.forEach(alert => alert.remove());
-                
-                form.appendChild(successAlert);
-            }
-        } else {
-            // Show error message
-            const errorAlert = document.createElement('div');
-            errorAlert.className = 'alert alert-danger mt-3';
-            errorAlert.innerHTML = `
-                <i class="fas fa-exclamation-circle me-2"></i> Connection failed: 
-                <strong>${result.error}</strong>
-            `;
-            
-            // Add to form
-            const form = document.getElementById('edit-connection-form');
-            if (form) {
-                // Remove any existing alerts
-                const existingAlerts = form.querySelectorAll('.alert');
-                existingAlerts.forEach(alert => alert.remove());
-                
-                form.appendChild(errorAlert);
-            }
-        }
-    } catch (error) {
-        console.error('Error testing connection:', error);
-        
-        // Restore button state
-        const testBtn = document.getElementById('edit-test-connection-btn');
-        if (testBtn) {
-            testBtn.disabled = false;
-            testBtn.innerHTML = '<i class="fas fa-vial"></i> Test Connection';
-        }
-        
-        // Show error message
-        showError(`Failed to test connection: ${error.message}`);
-    }
-}
-
-// Update connection
-async function updateConnection() {
-    // Get form data
-    const connectionId = document.getElementById('edit-connection-id').value;
-    const connectionData = {
-        id: connectionId,
-        name: document.getElementById('edit-connection-name').value,
-        username: document.getElementById('edit-connection-username').value,
-        host: document.getElementById('edit-connection-host').value,
-        database: document.getElementById('edit-connection-database').value,
-        password: document.getElementById('edit-connection-password').value,
-        port: parseInt(document.getElementById('edit-connection-port').value),
-        ssl: document.getElementById('edit-connection-ssl').checked
-    };
-    
-    // Validate required fields
-    if (!connectionData.name || !connectionData.username || !connectionData.host || !connectionData.database) {
-        showError('Please fill in all required fields');
-        return;
-    }
-    
-    try {
-        // Find the connection index
-        const index = dashboardState.connections.findIndex(c => String(c.id) === String(connectionId));
-        if (index === -1) {
-            showError('Connection not found');
-            return;
-        }
-        
-        // If password is empty, use existing password
-        if (!connectionData.password) {
-            connectionData.password = dashboardState.connections[index].password;
-        }
-        
-        // Update the connection
-        dashboardState.connections[index] = connectionData;
-        
-        // Save to local storage
-        localStorage.setItem('pg_monitor_connections', JSON.stringify(dashboardState.connections));
-        
-        // Update UI
-        updateConnectionsDropdown();
-        updateConnectionsUI();
-        
-        // Hide modal
-        const modal = document.getElementById('edit-connection-modal');
-        if (modal) {
-            const bsModal = bootstrap.Modal.getInstance(modal);
-            if (bsModal) {
-                bsModal.hide();
-            }
-        }
-        
-        // Reset connection tested flag if this is the current connection
-        if (String(dashboardState.selectedDatabase) === String(connectionId)) {
-            dashboardState.connectionTested = false;
-            refreshAllData();
-        }
-    } catch (error) {
-        console.error('Error updating connection:', error);
-        showError(`Failed to update connection: ${error.message}`);
-    }
-}
-
-// Delete connection
-function deleteConnection(connectionId) {
-    // Show confirmation dialog
-    if (!confirm('Are you sure you want to delete this connection? This action cannot be undone.')) {
-        return;
-    }
-    
-    try {
-        // Find the connection index
-        const index = dashboardState.connections.findIndex(c => String(c.id) === String(connectionId));
-        if (index === -1) {
-            showError('Connection not found');
-            return;
-        }
-        
-        // Remove the connection
-        dashboardState.connections.splice(index, 1);
-        
-        // Save to local storage
-        localStorage.setItem('pg_monitor_connections', JSON.stringify(dashboardState.connections));
-        
-        // Update UI
-        updateConnectionsDropdown();
-        updateConnectionsUI();
-        
-        // If this was the selected connection, select another one
-        if (dashboardState.selectedDatabase === connectionId) {
-            if (dashboardState.connections.length > 0) {
-                dashboardState.selectedDatabase = dashboardState.connections[0].id;
-                localStorage.setItem('pg_monitor_selected_connection', dashboardState.selectedDatabase);
-                
-                // Update dropdown
-                const databaseSelector = document.querySelector('.database-selector');
-                if (databaseSelector) {
-                    databaseSelector.value = dashboardState.selectedDatabase;
-                }
-                
-                // Reset connection tested flag
-                dashboardState.connectionTested = false;
-                
-                // Refresh data
-                refreshAllData();
-            } else {
-                // No connections left
-                dashboardState.selectedDatabase = null;
-                localStorage.removeItem('pg_monitor_selected_connection');
-                
-                // Show message
-                showNoConnectionsMessage();
-            }
-        }
-    } catch (error) {
-        console.error('Error deleting connection:', error);
-        showError(`Failed to delete connection: ${error.message}`);
     }
 }
 

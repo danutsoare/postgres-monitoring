@@ -6,10 +6,12 @@
 
 // Extended API interaction for PostgreSQL Monitoring Dashboard
 export default class PostgreSQLMonitorAPI {
-    static BASE_URL = '/api';
+    constructor() {
+        this.BASE_URL = '/api';
+    }
 
     // Fetch all database connections
-    static async getConnections() {
+    async getConnections() {
         try {
             const response = await fetch(`${this.BASE_URL}/connections`);
             if (!response.ok) {
@@ -23,7 +25,7 @@ export default class PostgreSQLMonitorAPI {
     }
 
     // Test a new database connection
-    static async testConnection(connectionData) {
+    async testConnection(connectionData) {
         try {
             const response = await fetch(`${this.BASE_URL}/connections/test`, {
                 method: 'POST',
@@ -47,7 +49,7 @@ export default class PostgreSQLMonitorAPI {
     }
 
     // Add a new database connection
-    static async addConnection(connectionData) {
+    async addConnection(connectionData) {
         try {
             const response = await fetch(`${this.BASE_URL}/connections`, {
                 method: 'POST',
@@ -71,7 +73,7 @@ export default class PostgreSQLMonitorAPI {
     }
 
     // Update an existing database connection
-    static async updateConnection(connectionId, connectionData) {
+    async updateConnection(connectionId, connectionData) {
         try {
             const response = await fetch(`${this.BASE_URL}/connections/${connectionId}`, {
                 method: 'PUT',
@@ -95,7 +97,7 @@ export default class PostgreSQLMonitorAPI {
     }
 
     // Delete a database connection
-    static async deleteConnection(connectionId) {
+    async deleteConnection(connectionId) {
         try {
             const response = await fetch(`${this.BASE_URL}/connections/${connectionId}`, {
                 method: 'DELETE'
@@ -114,7 +116,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Force refresh metrics for a specific connection
-    static async refreshConnection(connectionId) {
+    async refreshConnection(connectionId) {
         try {
             const response = await fetch(`${this.BASE_URL}/connections/${connectionId}/refresh`, {
                 method: 'POST'
@@ -134,7 +136,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Force refresh metrics for all connections
-    static async refreshMetrics() {
+    async refreshMetrics() {
         try {
             const response = await fetch(`${this.BASE_URL}/refresh`, {
                 method: 'POST'
@@ -154,7 +156,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Get PostgreSQL version information
-    static async getVersion() {
+    async getVersion() {
         try {
             const response = await fetch(`${this.BASE_URL}/version`);
             
@@ -170,7 +172,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Get top sessions consuming the most resources
-    static async getTopSessions() {
+    async getTopSessions() {
         try {
             const response = await fetch(`${this.BASE_URL}/sessions/top`);
             
@@ -186,7 +188,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Get wait events information
-    static async getWaitEvents() {
+    async getWaitEvents() {
         try {
             const response = await fetch(`${this.BASE_URL}/waits`);
             
@@ -202,7 +204,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Get wait events timeline for a specific connection
-    static async getWaitEventsTimeline(hours = 1) {
+    async getWaitEventsTimeline(hours = 1) {
         try {
             const response = await fetch(`${this.BASE_URL}/waits/timeline?hours=${hours}`);
             
@@ -218,7 +220,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Get blocking sessions hierarchy
-    static async getBlockingSessionsHierarchy() {
+    async getBlockingSessionsHierarchy() {
         try {
             const response = await fetch(`${this.BASE_URL}/locks/blocking`);
             
@@ -234,7 +236,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Get temporary space usage
-    static async getTempSpaceUsage() {
+    async getTempSpaceUsage() {
         try {
             const response = await fetch(`${this.BASE_URL}/temp/usage`);
             
@@ -250,7 +252,7 @@ export default class PostgreSQLMonitorAPI {
     }
     
     // Get comprehensive database statistics for a specific connection
-    static async getDatabaseStats(connectionId) {
+    async getDatabaseStats(connectionId) {
         try {
             // Make sure we have a valid connection ID
             if (!connectionId) {
@@ -292,7 +294,7 @@ export default class PostgreSQLMonitorAPI {
     }
 
     // Get available PostgreSQL extensions
-    static async getExtensions() {
+    async getExtensions() {
         try {
             const response = await fetch(`${this.BASE_URL}/extensions`);
             
