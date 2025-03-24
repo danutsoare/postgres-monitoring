@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostgreSQL Monitor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="container">
+                <a href="index.html" class="navbar-brand">
+                    <i class="fas fa-database"></i> PostgreSQL Monitor
+                </a>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a href="index.html" class="nav-link">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="connections.html" class="nav-link">Connections</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1 class="page-title">Dashboard</h1>
+        
+        <div id="connection-selector" class="card">
+            <div class="card-header">
+                Select Database Connection
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="connection-select" class="form-label">Connection:</label>
+                    <select id="connection-select" class="form-control">
+                        <option value="">-- Select a connection --</option>
+                    </select>
+                </div>
+                <div class="text-center">
+                    <button id="load-metrics-btn" class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i> Load Metrics
+                    </button>
+                    <button id="collect-metrics-btn" class="btn btn-success">
+                        <i class="fas fa-download"></i> Collect New Metrics
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboard-content" style="display:none;">
+            <div class="card">
+                <div class="card-header">
+                    Database Information
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <th>Connection Name:</th>
+                                <td id="connection-name"></td>
+                            </tr>
+                            <tr>
+                                <th>PostgreSQL Version:</th>
+                                <td id="db-version"></td>
+                            </tr>
+                            <tr>
+                                <th>Active Connections:</th>
+                                <td id="connection-count"></td>
+                            </tr>
+                            <tr>
+                                <th>Last Updated:</th>
+                                <td id="last-updated"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex-row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fas fa-table"></i> Table Sizes
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="table-size-chart"></canvas>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table" id="table-size-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Table</th>
+                                            <th>Size</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Table size data will be inserted here by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fas fa-hourglass-half"></i> Wait Events
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="wait-events-chart"></canvas>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table" id="wait-events-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Wait Event Type</th>
+                                            <th>Wait Event</th>
+                                            <th>Count</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Wait events data will be inserted here by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fas fa-chart-line"></i> Historical Metrics
+                            <div class="float-right">
+                                <select id="history-range" class="form-control">
+                                    <option value="6">Last 6 Hours</option>
+                                    <option value="12">Last 12 Hours</option>
+                                    <option value="24" selected>Last 24 Hours</option>
+                                    <option value="48">Last 48 Hours</option>
+                                    <option value="168">Last 7 Days</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="connections-history-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="no-data-message" style="display:none;">
+            <div class="alert alert-info">
+                <h4><i class="fas fa-info-circle"></i> No metrics data available</h4>
+                <p>Please select a connection and click "Collect New Metrics" to gather monitoring data.</p>
+            </div>
+        </div>
+
+        <div id="loading-indicator" style="display:none;">
+            <div class="text-center">
+                <div class="loader"></div>
+                <p>Loading data, please wait...</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="alert-container"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

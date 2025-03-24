@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostgreSQL Monitor - Connections</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="container">
+                <a href="index.html" class="navbar-brand">
+                    <i class="fas fa-database"></i> PostgreSQL Monitor
+                </a>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a href="index.html" class="nav-link">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="connections.html" class="nav-link">Connections</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <h1 class="page-title">Database Connections</h1>
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-server"></i> Manage Database Connections
+            </div>
+            <div class="card-body">
+                <button id="add-connection-btn" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New Connection
+                </button>
+                
+                <div id="loading-indicator" style="display:none;">
+                    <div class="loader"></div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table" id="connections-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Host</th>
+                                <th>Port</th>
+                                <th>Database</th>
+                                <th>Username</th>
+                                <th>Last Connected</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Connection data will be inserted here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="no-connections-message" style="display:none;">
+                    <div class="alert alert-info">
+                        <p>No database connections found. Click "Add New Connection" to get started.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Connection Modal -->
+    <div id="add-connection-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Connection</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="add-connection-form">
+                    <div class="form-group">
+                        <label for="connection-name" class="form-label">Connection Name:</label>
+                        <input type="text" id="connection-name" class="form-control" placeholder="Production Database" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="connection-host" class="form-label">Host:</label>
+                        <input type="text" id="connection-host" class="form-control" placeholder="localhost or database.example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="connection-port" class="form-label">Port:</label>
+                        <input type="number" id="connection-port" class="form-control" value="5432" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="connection-database" class="form-label">Database Name:</label>
+                        <input type="text" id="connection-database" class="form-control" placeholder="postgres" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="connection-username" class="form-label">Username:</label>
+                        <input type="text" id="connection-username" class="form-control" placeholder="postgres" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="connection-password" class="form-label">Password:</label>
+                        <input type="password" id="connection-password" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="connection-ssl"> Use SSL
+                        </label>
+                    </div>
+                </form>
+                <div id="add-connection-alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="test-connection-btn" class="btn btn-info">
+                    <i class="fas fa-vial"></i> Test Connection
+                </button>
+                <button type="button" id="save-connection-btn" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Connection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Connection Modal -->
+    <div id="edit-connection-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Connection</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="edit-connection-form">
+                    <input type="hidden" id="edit-connection-id">
+                    <div class="form-group">
+                        <label for="edit-connection-name" class="form-label">Connection Name:</label>
+                        <input type="text" id="edit-connection-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-connection-host" class="form-label">Host:</label>
+                        <input type="text" id="edit-connection-host" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-connection-port" class="form-label">Port:</label>
+                        <input type="number" id="edit-connection-port" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-connection-database" class="form-label">Database Name:</label>
+                        <input type="text" id="edit-connection-database" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-connection-username" class="form-label">Username:</label>
+                        <input type="text" id="edit-connection-username" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-connection-password" class="form-label">Password:</label>
+                        <input type="password" id="edit-connection-password" class="form-control" placeholder="Leave empty to keep current password">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="edit-connection-ssl"> Use SSL
+                        </label>
+                    </div>
+                </form>
+                <div id="edit-connection-alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="edit-test-connection-btn" class="btn btn-info">
+                    <i class="fas fa-vial"></i> Test Connection
+                </button>
+                <button type="button" id="update-connection-btn" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Update Connection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Connection Modal -->
+    <div id="delete-connection-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Confirm Deletion</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the connection "<span id="delete-connection-name"></span>"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+                <input type="hidden" id="delete-connection-id">
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="cancel-delete-btn" class="btn btn-info">Cancel</button>
+                <button type="button" id="confirm-delete-btn" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Delete Connection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/connections.js"></script>
+</body>
+</html>
