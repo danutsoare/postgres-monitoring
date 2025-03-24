@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # Application database (stores connections and metrics)
+  app_db:
+    image: postgres:15.3
+    container_name: pgmonitor_app_db
+    environment:
+      POSTGRES_USER: pgmonitor
+      POSTGRES_PASSWORD: pgmonitor_secret
+      POSTGRES_DB: pgmonitor_app
+    volumes:
+      - pgmonitor_app_data:/var/lib/postgresql/data
+      - ./backend/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgmonitor"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - pgmonitor_network
+
+  # Backend API
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pgmonitor_api
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=app_db
+      - DB_PORT=5432
+      - DB_USER=pgmonitor
+      - DB_PASSWORD=pgmonitor_secret
+      - DB_NAME=pgmonitor_app
+      - ENCRYPTION_KEY=your_secure_encryption_key_here
+    ports:
+      - "3000:3000"
+    depends_on:
+      app_db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - pgmonitor_network
+
+  # Frontend web server
+  web:
+    image: nginx:alpine
+    container_name: pgmonitor_web
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - pgmonitor_network
+
+volumes:
+  pgmonitor_app_data:
+
+networks:
+  pgmonitor_network:
+    driver: bridge
