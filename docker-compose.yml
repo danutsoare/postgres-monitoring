@@ -1,4 +1,4 @@
-version: '3.8'
+---
 
 services:
   # Application database (stores connections and metrics)
